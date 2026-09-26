@@ -179,7 +179,8 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
             bullBalance, bearBalance, bullPrice, bearPrice, bullReserve, bearReserve
         );
 
-        if (weight == 0) revert ZeroWeight();
+        // slither-disable-next-line incorrect-equality
+        if (weight < 1) revert ZeroWeight();
 
         //  4. Update price averager ----------------------------
         _averager.update(price, weight, tau);

@@ -32,7 +32,7 @@ library PriceAverager {
     /// @param weight The submitter's neutrality weight (WAD-scaled, max 0.5e18)
     /// @param tau    Decay time constant in seconds (larger = slower decay)
     function update(State storage self, uint256 price, uint256 weight, uint256 tau) internal {
-        if (weight == 0) return;
+        if (weight < 1) return;
 
         if (self.lastUpdateTime == 0) {
             // First submission — no decay needed
