@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AEL
 pragma solidity ^0.8.23;
 
-import {Test} from "forge-std/Test.sol";
-import {Karma} from "../src/Karma.sol";
-import {IKarmaOracle} from "../src/interfaces/IKarmaOracle.sol";
-import {MockBaseToken, MockCoin, MockPredictionPool} from "./mocks/Mocks.sol";
+import { Test } from "forge-std/Test.sol";
+import { Karma } from "../src/Karma.sol";
+import { IKarmaOracle } from "../src/interfaces/IKarmaOracle.sol";
+import { MockBaseToken, MockCoin, MockPredictionPool } from "./mocks/Mocks.sol";
 
 /// @title Karma Tests -- Core contract tests for price submission, weight, IOracle, Chainlink compat
 contract KarmaTest is Test {
@@ -140,9 +140,7 @@ contract KarmaTest is Test {
     function test_submitPrice_insufficient_balance_reverts() public {
         // Charlie has no tokens
         vm.prank(charlie);
-        vm.expectRevert(
-            abi.encodeWithSelector(Karma.InsufficientBalance.selector, 0, MIN_BALANCE)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Karma.InsufficientBalance.selector, 0, MIN_BALANCE));
         karma.submitPrice(67000e18);
     }
 

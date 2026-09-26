@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: AEL
 pragma solidity ^0.8.23;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import {IOracle} from "./interfaces/IOracle.sol";
-import {IKarmaOracle} from "./interfaces/IKarmaOracle.sol";
-import {WeightLib} from "./lib/WeightLib.sol";
-import {PriceAverager} from "./lib/PriceAverager.sol";
+import { IOracle } from "./interfaces/IOracle.sol";
+import { IKarmaOracle } from "./interfaces/IKarmaOracle.sol";
+import { WeightLib } from "./lib/WeightLib.sol";
+import { PriceAverager } from "./lib/PriceAverager.sol";
 
 /// @title IPredictionPoolReader — Minimal read interface for Fate PredictionPool
 /// @dev   Only the views Karma needs; keeps Karma decoupled from the full pool.
@@ -37,7 +37,6 @@ interface ICoinReader {
 contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
     using PriceAverager for PriceAverager.State;
 
-    
     //  Constants -----------------------
 
     /// @notice Fixed-point scale (WAD)
@@ -52,7 +51,6 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
     /// @notice Default minimum total balance for Sybil resistance (100 tokens in WAD)
     uint256 public constant DEFAULT_MIN_BALANCE = 100e18;
 
-    
     //  Immutable config ------------------------
     /// @notice The Fate PredictionPool this Karma oracle serves
     IPredictionPoolReader public immutable pool;
@@ -69,7 +67,6 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
     /// @notice Decay time constant (seconds). Larger = slower decay.
     uint256 public immutable tau;
 
-    
     //  Mutable state ------------------------------
     /// @notice Human-readable oracle description
     string private _description;
@@ -95,7 +92,6 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
 
     mapping(address => Submission) public submissions;
 
-
     //  Errors    -------------------------------------
     error ZeroPrice();
     error InsufficientBalance(uint256 totalBalance, uint256 minRequired);
@@ -105,17 +101,14 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
 
     
     //  Constructor -------------------------------------
-    
+
     /// @param _pool            Address of the Fate PredictionPool
     /// @param _tau             Decay time constant in seconds (0 → use DEFAULT_TAU)
     /// @param _minTotalBalance Minimum balance threshold (0 → use DEFAULT_MIN_BALANCE)
     /// @param desc             Human-readable description
-    constructor(
-        address _pool,
-        uint256 _tau,
-        uint256 _minTotalBalance,
-        string memory desc
-    ) Ownable(msg.sender) {
+    constructor(address _pool, uint256 _tau, uint256 _minTotalBalance, string memory desc)
+        Ownable(msg.sender)
+    {
         if (_pool == address(0)) revert InvalidPool();
 
         pool = IPredictionPoolReader(_pool);
@@ -128,7 +121,6 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
         _description = desc;
     }
 
-    
     //  IOracle implementation (Fate PredictionPool integration)
 
     /// @inheritdoc IOracle
@@ -158,16 +150,10 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
     }
 
     /// @inheritdoc IOracle
-    function description()
-        external
-        view
-        override(IOracle, IKarmaOracle)
-        returns (string memory)
-    {
+    function description() external view override(IOracle, IKarmaOracle) returns (string memory) {
         return _description;
     }
 
-    
     //  Karma-specific: price submission full steps ----------------------------
     /// @inheritdoc IKarmaOracle
     function submitPrice(uint256 price) external override nonReentrant {
@@ -191,12 +177,7 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
         uint256 bearReserve = baseToken.balanceOf(bearCoin);
 
         uint256 weight = WeightLib.computeWeight(
-            bullBalance,
-            bearBalance,
-            bullPrice,
-            bearPrice,
-            bullReserve,
-            bearReserve
+            bullBalance, bearBalance, bullPrice, bearPrice, bullReserve, bearReserve
         );
 
         if (weight == 0) revert ZeroWeight();
@@ -205,11 +186,8 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
         _averager.update(price, weight, tau);
 
         //  5. Store submission record ----------------------------
-        submissions[msg.sender] = Submission({
-            price: price,
-            weight: weight,
-            timestamp: block.timestamp
-        });
+        submissions[msg.sender] =
+            Submission({ price: price, weight: weight, timestamp: block.timestamp });
 
         submissionCount++;
         if (firstSubmissionTime == 0) {
@@ -220,7 +198,6 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
         emit PriceSubmitted(msg.sender, price, weight, block.timestamp);
     }
 
-    
     //  Karma-specific: read-only queries --------------------------
 
     /// @inheritdoc IKarmaOracle
@@ -256,7 +233,6 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
         return _averager.hasPrice();
     }
 
-    
     //  Chainlink-compatible-----------------------------
 
     /// @inheritdoc IKarmaOracle
@@ -292,9 +268,8 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
         return 1;
     }
 
-    
     //  Admin     -------------------------------
-    
+
     /// @notice Update the minimum balance threshold for Sybil resistance
     /// @param newMinBalance New minimum (bullBalance + bearBalance) required
     function setMinTotalBalance(uint256 newMinBalance) external onlyOwner {

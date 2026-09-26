@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AEL
 pragma solidity ^0.8.23;
 
-import {Script, console} from "forge-std/Script.sol";
-import {KarmaAdapterFactory} from "../src/KarmaAdapterFactory.sol";
-import {Karma} from "../src/Karma.sol";
+import { Script, console } from "forge-std/Script.sol";
+import { KarmaAdapterFactory } from "../src/KarmaAdapterFactory.sol";
+import { Karma } from "../src/Karma.sol";
 
 /// @title DeployKarma — Foundry deployment script for Karma oracle system
 /// @notice Deploys the KarmaAdapterFactory and optionally creates a Karma instance

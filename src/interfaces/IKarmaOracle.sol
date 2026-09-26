@@ -71,10 +71,7 @@ interface IKarmaOracle {
 
     /// @notice Emitted on every successful price submission
     event PriceSubmitted(
-        address indexed submitter,
-        uint256 price,
-        uint256 weight,
-        uint256 timestamp
+        address indexed submitter, uint256 price, uint256 weight, uint256 timestamp
     );
 
     /// @notice Emitted when the minimum balance threshold is updated

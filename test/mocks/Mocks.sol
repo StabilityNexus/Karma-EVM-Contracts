@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AEL
 pragma solidity ^0.8.23;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title MockBaseToken — Simple ERC20 for testing
 contract MockBaseToken is ERC20 {
-    constructor() ERC20("Mock Base", "BASE") {}
+    constructor() ERC20("Mock Base", "BASE") { }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);

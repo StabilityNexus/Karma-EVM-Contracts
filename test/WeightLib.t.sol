@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AEL
 pragma solidity ^0.8.23;
 
-import {Test} from "forge-std/Test.sol";
-import {WeightLib} from "../src/lib/WeightLib.sol";
+import { Test } from "forge-std/Test.sol";
+import { WeightLib } from "../src/lib/WeightLib.sol";
 
 /// @title WeightLib Tests — Unit and fuzz tests for neutrality weight calculation
 contract WeightLibTest is Test {
@@ -85,9 +85,7 @@ contract WeightLibTest is Test {
         // User: 100 bull, 200 bear, bullPrice=bearPrice=100000
         // Bull reserve = 1000e18, Bear reserve = 2000e18
         uint256 price = 100000;
-        uint256 w = WeightLib.computeWeight(
-            100e18, 200e18, price, price, 1000e18, 2000e18
-        );
+        uint256 w = WeightLib.computeWeight(100e18, 200e18, price, price, 1000e18, 2000e18);
         // normBull = 100e18 * 100000 / 1e18 * (2000/3000 * 1e18) / 1e18
         //         = 100e18 * 100000 / 1e18 = 10000e18... then * bearShare
         //         bearShare = 2000/3000 * 1e18 = 0.666e18
@@ -157,9 +155,8 @@ contract WeightLibTest is Test {
         bullReserve = bound(bullReserve, 0, 1e30);
         bearReserve = bound(bearReserve, 0, 1e30);
 
-        uint256 w = WeightLib.computeWeight(
-            bull, bear, bullPrice, bearPrice, bullReserve, bearReserve
-        );
+        uint256 w =
+            WeightLib.computeWeight(bull, bear, bullPrice, bearPrice, bullReserve, bearReserve);
 
         // Invariant: weight is bounded (no overflow)
         // weight = min(normBull, normBear) which is bounded by the inputs

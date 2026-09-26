@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AEL
 pragma solidity ^0.8.23;
 
-import {Test} from "forge-std/Test.sol";
-import {PriceAverager} from "../src/lib/PriceAverager.sol";
+import { Test } from "forge-std/Test.sol";
+import { PriceAverager } from "../src/lib/PriceAverager.sol";
 
 /// @title PriceAverager Tests — Unit and fuzz tests for time-decayed price averaging
 /// @dev   Uses a wrapper contract because PriceAverager operates on storage state.

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AEL
 pragma solidity ^0.8.23;
 
-import {Test} from "forge-std/Test.sol";
-import {Karma} from "../src/Karma.sol";
-import {MockBaseToken, MockCoin, MockPredictionPool} from "./mocks/Mocks.sol";
+import { Test } from "forge-std/Test.sol";
+import { Karma } from "../src/Karma.sol";
+import { MockBaseToken, MockCoin, MockPredictionPool } from "./mocks/Mocks.sol";
 
 /// @title Security Tests -- Sybil resistance, whale resistance, flash-loan simulation, reentrancy
 contract SecurityTest is Test {
@@ -226,7 +226,9 @@ contract SecurityTest is Test {
     //  Fuzz: submitPrice never panics with valid inputs
     // ──────────────────────────────────────────────────────────────
 
-    function testFuzz_submitPrice_valid_inputs(uint256 price, uint256 bullBal, uint256 bearBal) public {
+    function testFuzz_submitPrice_valid_inputs(uint256 price, uint256 bullBal, uint256 bearBal)
+        public
+    {
         price = bound(price, 1, 1e30);
         bullBal = bound(bullBal, 50e18, 1e24);
         bearBal = bound(bearBal, 50e18, 1e24);

@@ -49,4 +49,5 @@ jobs:
         uses: crytic/slither-action@v0.4.2
         with:
           target: "."
+          solc-version: "0.8.23"
           slither-args: --filter-paths "lib|test|script|broadcast|cache|out"

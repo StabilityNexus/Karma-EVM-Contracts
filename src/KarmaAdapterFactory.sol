@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AEL
 pragma solidity ^0.8.23;
 
-import {Karma} from "./Karma.sol";
-import {IOracle} from "./interfaces/IOracle.sol";
+import { Karma } from "./Karma.sol";
+import { IOracle } from "./interfaces/IOracle.sol";
 
 /// @title IOracleRegistrar — Minimal interface for PredictionPoolFactory.registerOracle
 interface IOracleRegistrar {
@@ -57,12 +57,10 @@ contract KarmaAdapterFactory is IAdapterFactory {
     }
 
     /// @notice Explicit-parameter convenience function
-    function createKarma(
-        address pool,
-        uint256 _tau,
-        uint256 _minBalance,
-        string memory desc
-    ) external returns (address adapter) {
+    function createKarma(address pool, uint256 _tau, uint256 _minBalance, string memory desc)
+        external
+        returns (address adapter)
+    {
         return _createKarma(pool, _tau, _minBalance, desc);
     }
 
@@ -72,11 +70,11 @@ contract KarmaAdapterFactory is IAdapterFactory {
     }
 
     /// @notice Look up an existing Karma deployment by its configuration
-    function getKarma(
-        address pool,
-        uint256 _tau,
-        uint256 _minBalance
-    ) external view returns (address) {
+    function getKarma(address pool, uint256 _tau, uint256 _minBalance)
+        external
+        view
+        returns (address)
+    {
         return adapters[_key(pool, _tau, _minBalance)];
     }
 
@@ -84,12 +82,10 @@ contract KarmaAdapterFactory is IAdapterFactory {
     //  Internal
     // ──────────────────────────────────────────────────────────────
 
-    function _createKarma(
-        address pool,
-        uint256 _tau,
-        uint256 _minBalance,
-        string memory desc
-    ) internal returns (address adapter) {
+    function _createKarma(address pool, uint256 _tau, uint256 _minBalance, string memory desc)
+        internal
+        returns (address adapter)
+    {
         bytes32 key = _key(pool, _tau, _minBalance);
 
         // Return existing if already deployed
@@ -108,11 +104,7 @@ contract KarmaAdapterFactory is IAdapterFactory {
         emit KarmaCreated(pool, adapter, _tau, _minBalance, desc);
     }
 
-    function _key(
-        address pool,
-        uint256 _tau,
-        uint256 _minBalance
-    ) internal pure returns (bytes32) {
+    function _key(address pool, uint256 _tau, uint256 _minBalance) internal pure returns (bytes32) {
         return keccak256(abi.encode(pool, _tau, _minBalance));
     }
 }
