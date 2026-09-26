@@ -13,11 +13,11 @@ contract MockBaseToken is ERC20 {
     }
 }
 
-/// @title MockCoin — Simulates Fate's Coin with priceSell() and reserve tracking
+/// @title MockCoin — Simulates Coin with priceSell() and reserve tracking
 /// @dev   The "reserve" is simply the baseToken balance held by this contract.
 contract MockCoin is ERC20 {
     IERC20 public immutable asset;
-    uint256 public constant DENOMINATOR = 100000;
+    uint256 public constant DENOMINATOR = 100_000;
 
     constructor(string memory name, string memory symbol, address _asset) ERC20(name, symbol) {
         asset = IERC20(_asset);
@@ -39,7 +39,7 @@ contract MockCoin is ERC20 {
     }
 }
 
-/// @title MockPredictionPool — Simulates Fate's PredictionPool for Karma testing
+/// @title MockPredictionPool — Simulates PredictionPool for Karma testing
 contract MockPredictionPool {
     IERC20 public baseToken;
     address public bullCoin;

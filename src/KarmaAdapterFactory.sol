@@ -9,14 +9,13 @@ interface IOracleRegistrar {
     function registerOracle(address oracle) external;
 }
 
-/// @title IAdapterFactory — Generic adapter factory interface (matches Fate)
+/// @title IAdapterFactory — Generic adapter factory interface
 interface IAdapterFactory {
     function createAdapter(bytes memory params) external returns (address adapter);
 }
 
 /// @title KarmaAdapterFactory — Creates Karma oracle instances for PredictionPool integration
-/// @notice Follows the same factory + registry pattern as Fate's ChainlinkAdapterFactory
-///         and FateAdapterFactory. Creates Karma instances, registers them as valid oracles
+/// @notice Follows the factory + registry pattern. Creates Karma instances, registers them as valid oracles
 ///         on the PredictionPoolFactory, and caches them to prevent duplicates.
 /// @dev    The factory key is hash(pool, tau, minBalance) to allow different configurations
 ///         per pool while preventing duplicate deployments.
@@ -51,17 +50,17 @@ contract KarmaAdapterFactory is IAdapterFactory {
     /// @notice IAdapterFactory implementation — creates Karma from encoded params
     /// @param params ABI-encoded (address pool, uint256 tau, uint256 minBalance, string description)
     function createAdapter(bytes memory params) external override returns (address adapter) {
-        (address pool, uint256 _tau, uint256 _minBalance, string memory desc) =
+        (address pool, uint256 tau, uint256 minBalance, string memory desc) =
             abi.decode(params, (address, uint256, uint256, string));
-        return _createKarma(pool, _tau, _minBalance, desc);
+        return _createKarma(pool, tau, minBalance, desc);
     }
 
     /// @notice Explicit-parameter convenience function
-    function createKarma(address pool, uint256 _tau, uint256 _minBalance, string memory desc)
+    function createKarma(address pool, uint256 tau, uint256 minBalance, string memory desc)
         external
         returns (address adapter)
     {
-        return _createKarma(pool, _tau, _minBalance, desc);
+        return _createKarma(pool, tau, minBalance, desc);
     }
 
     /// @notice Create with defaults (tau = DEFAULT_TAU, minBalance = DEFAULT_MIN_BALANCE)
@@ -70,23 +69,23 @@ contract KarmaAdapterFactory is IAdapterFactory {
     }
 
     /// @notice Look up an existing Karma deployment by its configuration
-    function getKarma(address pool, uint256 _tau, uint256 _minBalance)
+    function getKarma(address pool, uint256 tau, uint256 minBalance)
         external
         view
         returns (address)
     {
-        return adapters[_key(pool, _tau, _minBalance)];
+        return adapters[_key(pool, tau, minBalance)];
     }
 
     // ──────────────────────────────────────────────────────────────
     //  Internal
     // ──────────────────────────────────────────────────────────────
 
-    function _createKarma(address pool, uint256 _tau, uint256 _minBalance, string memory desc)
+    function _createKarma(address pool, uint256 tau, uint256 minBalance, string memory desc)
         internal
         returns (address adapter)
     {
-        bytes32 key = _key(pool, _tau, _minBalance);
+        bytes32 key = _key(pool, tau, minBalance);
 
         // Return existing if already deployed
         if (adapters[key] != address(0)) {
@@ -94,17 +93,17 @@ contract KarmaAdapterFactory is IAdapterFactory {
         }
 
         // Deploy new Karma
-        Karma karma = new Karma(pool, _tau, _minBalance, desc);
+        Karma karma = new Karma(pool, tau, minBalance, desc);
         adapter = address(karma);
         adapters[key] = adapter;
 
+        emit KarmaCreated(pool, adapter, tau, minBalance, desc);
+
         // Register as valid oracle on the PredictionPoolFactory
         IOracleRegistrar(poolFactory).registerOracle(adapter);
-
-        emit KarmaCreated(pool, adapter, _tau, _minBalance, desc);
     }
 
-    function _key(address pool, uint256 _tau, uint256 _minBalance) internal pure returns (bytes32) {
-        return keccak256(abi.encode(pool, _tau, _minBalance));
+    function _key(address pool, uint256 tau, uint256 minBalance) internal pure returns (bytes32) {
+        return keccak256(abi.encode(pool, tau, minBalance));
     }
 }

@@ -51,3 +51,4 @@ jobs:
           target: "."
           solc-version: "0.8.23"
           slither-args: --filter-paths "lib|test|script|broadcast|cache|out"
+          fail-on: medium

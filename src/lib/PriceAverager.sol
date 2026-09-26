@@ -6,7 +6,7 @@ import { WadExp } from "./WadExp.sol";
 /// @title PriceAverager — Time-decayed weighted price averaging for Karma
 /// @notice Maintains a running weighted average of submitted prices where older
 ///         contributions decay exponentially over time. Reuses the EWMA step
-///         formula from Fate's FateOracleBase (ewma + alpha*(s - ewma) where
+///         formula (ewma + alpha*(s - ewma) where
 ///         alpha = 1 - exp(-dt/tau)).
 /// @dev    Instead of tracking a single EWMA signal, this tracks two parallel
 ///         decaying accumulators (weightedPrice and totalWeight) whose ratio
@@ -26,7 +26,7 @@ library PriceAverager {
     /// @notice Update the price averager with a new submission
     /// @dev    Applies exponential decay to existing accumulators, then adds the
     ///         new (price, weight) contribution. The decay factor is computed as
-    ///         exp(-dt/tau) via WadExp, matching FateOracleBase._ewmaStep().
+    ///         exp(-dt/tau) via WadExp, matching continuous EWMA decay.
     /// @param self   The averager state (storage)
     /// @param price  The submitted price (WAD-scaled)
     /// @param weight The submitter's neutrality weight (WAD-scaled, max 0.5e18)
@@ -80,7 +80,7 @@ library PriceAverager {
     }
 
     /// @notice Compute the exponential decay factor for a given time delta
-    /// @dev    decay = exp(-dt / tau), matching FateOracleBase._ewmaStep().
+    /// @dev    decay = exp(-dt / tau), matching continuous EWMA decay.
     ///         Returns WAD (1e18) when dt == 0 (no decay).
     /// @param dt   Seconds since last update
     /// @param tau  Decay time constant
@@ -91,7 +91,7 @@ library PriceAverager {
         // x = -dt/tau in WAD
         int256 x = -int256((dt * WAD) / tau);
 
-        // exp(x) via WadExp — same call as FateOracleBase
+        // exp(x) via WadExp — fixed-point exponential calculation
         int256 expResult = WadExp.expWad(x);
 
         // Clamp to [0, WAD] — exp of a negative number is in (0, 1]

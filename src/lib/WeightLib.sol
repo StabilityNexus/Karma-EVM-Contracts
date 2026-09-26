@@ -11,7 +11,7 @@ pragma solidity ^0.8.23;
 ///         1 "normalized bullCoin" gives its holder exactly the same profit on an
 ///         upward move as 1 "normalized bearCoin" on a downward move.
 ///
-///         Normalization (from Fate's reserve redistribution mechanism):
+///         Normalization (via reserve redistribution mechanism):
 ///           normBull = bullBalance × bullPrice × bearReserveShare
 ///           normBear = bearBalance × bearPrice × bullReserveShare
 ///
@@ -76,10 +76,11 @@ library WeightLib {
     /// @param bullBalance  User's bullCoin balance
     /// @param bearBalance  User's bearCoin balance
     /// @return weight      Neutrality weight proportional to balanced stake
-    function computeWeightSimple(
-        uint256 bullBalance,
-        uint256 bearBalance
-    ) internal pure returns (uint256 weight) {
+    function computeWeightSimple(uint256 bullBalance, uint256 bearBalance)
+        internal
+        pure
+        returns (uint256 weight)
+    {
         if (bullBalance == 0 && bearBalance == 0) return 0;
 
         weight = bullBalance < bearBalance ? bullBalance : bearBalance;

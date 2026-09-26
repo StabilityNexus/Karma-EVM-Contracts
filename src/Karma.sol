@@ -10,7 +10,7 @@ import { IKarmaOracle } from "./interfaces/IKarmaOracle.sol";
 import { WeightLib } from "./lib/WeightLib.sol";
 import { PriceAverager } from "./lib/PriceAverager.sol";
 
-/// @title IPredictionPoolReader — Minimal read interface for Fate PredictionPool
+/// @title IPredictionPoolReader — Minimal read interface for PredictionPool
 /// @dev   Only the views Karma needs; keeps Karma decoupled from the full pool.
 interface IPredictionPoolReader {
     function baseToken() external view returns (IERC20);
@@ -18,7 +18,7 @@ interface IPredictionPoolReader {
     function bearCoin() external view returns (address);
 }
 
-/// @title ICoinReader — Minimal read interface for Fate Coin price queries
+/// @title ICoinReader — Minimal read interface for Coin price queries
 interface ICoinReader {
     function priceSell() external view returns (uint256);
 }
@@ -29,9 +29,9 @@ interface ICoinReader {
 ///         economic exposure to upward and downward price movements is balanced
 ///         has maximum influence.; a one-sided holder has near-zero influence.
 ///         Older submissions decay exponentially, so the oracle tracks fresh consensus.
-/// @dev    Implements Fate's IOracle so PredictionPool can call readValue() unchanged.
+/// @dev    Implements IOracle so PredictionPool can call readValue() unchanged.
 ///         Internally uses WeightLib for neutrality calculation and PriceAverager for
-///         time-decayed weighted averaging, both adapted from the Gluon/Orb/Fate patterns.
+///         time-decayed weighted averaging, both adapted from neutrality and EWMA patterns.
 ///
 
 contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
@@ -42,17 +42,17 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
     /// @notice Fixed-point scale (WAD)
     uint256 public constant SCALE = 1e18;
 
-    /// @notice Coin price denominator (matches Fate's Coin.DENOMINATOR)
-    uint256 public constant COIN_DENOMINATOR = 100000;
+    /// @notice Coin price denominator (matches Coin.DENOMINATOR)
+    uint256 public constant COIN_DENOMINATOR = 100_000;
 
-    /// @notice Default decay time constant (~1-day EWMA half-life, same as FateOracleBase)
+    /// @notice Default decay time constant (~1-day EWMA half-life)
     uint256 public constant DEFAULT_TAU = 124651;
 
     /// @notice Default minimum total balance for Sybil resistance (100 tokens in WAD)
     uint256 public constant DEFAULT_MIN_BALANCE = 100e18;
 
     //  Immutable config ------------------------
-    /// @notice The Fate PredictionPool this Karma oracle serves
+    /// @notice The PredictionPool this Karma oracle serves
     IPredictionPoolReader public immutable pool;
 
     /// @notice The pool's base token
@@ -99,10 +99,9 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
     error InvalidPool();
     error InvalidTau();
 
-    
     //  Constructor -------------------------------------
 
-    /// @param _pool            Address of the Fate PredictionPool
+    /// @param _pool            Address of the PredictionPool
     /// @param _tau             Decay time constant in seconds (0 → use DEFAULT_TAU)
     /// @param _minTotalBalance Minimum balance threshold (0 → use DEFAULT_MIN_BALANCE)
     /// @param desc             Human-readable description
@@ -121,7 +120,7 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
         _description = desc;
     }
 
-    //  IOracle implementation (Fate PredictionPool integration)
+    //  IOracle implementation (PredictionPool integration)
 
     /// @inheritdoc IOracle
     function readValue() public view override(IOracle, IKarmaOracle) returns (uint256 value) {
@@ -190,7 +189,7 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
             Submission({ price: price, weight: weight, timestamp: block.timestamp });
 
         submissionCount++;
-        if (firstSubmissionTime == 0) {
+        if (submissionCount == 1) {
             firstSubmissionTime = block.timestamp;
         }
 
@@ -204,8 +203,6 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
     function getWeight(address user) external view override returns (uint256 weight) {
         uint256 bullBalance = IERC20(bullCoin).balanceOf(user);
         uint256 bearBalance = IERC20(bearCoin).balanceOf(user);
-
-        if (bullBalance + bearBalance == 0) return 0;
 
         uint256 bullPrice = ICoinReader(bullCoin).priceSell();
         uint256 bearPrice = ICoinReader(bearCoin).priceSell();

@@ -158,7 +158,7 @@ contract SecurityTest is Test {
         karma.submitPrice(99999e18);
 
         // But the weight is based on balanceOf at submission time
-        // The key defense is that bull/bear coins are NOT flash-loanable in Fate
+        // The key defense is that bull/bear coins are NOT flash-loanable
         // because they require baseToken deposit through buy().
         // This test verifies the contract reads balances correctly.
         (, uint256 w,) = karma.getSubmission(attacker);

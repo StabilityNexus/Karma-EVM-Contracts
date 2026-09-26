@@ -2,11 +2,11 @@
 pragma solidity ^0.8.23;
 
 /// @title IKarmaOracle — Extended oracle interface for Karma
-/// @notice Combines Fate's IOracle compatibility, Karma-specific submission
+/// @notice Combines IOracle compatibility, Karma-specific submission
 ///         functions, and a Chainlink-compatible latestRoundData() view.
 interface IKarmaOracle {
     // ──────────────────────────────────────────────────────────────
-    //  IOracle compatibility (Fate PredictionPool integration)
+    //  IOracle compatibility (PredictionPool integration)
     // ──────────────────────────────────────────────────────────────
 
     /// @notice Returns the current time-decayed weighted average price
