@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 /// @title IKarmaOracle — Extended oracle interface for Karma
-/// @notice Combines IOracle compatibility, Karma-specific submission
+/// @notice Combines IOracle compatibility, Karma price submission
 ///         functions, and a Chainlink-compatible latestRoundData() view.
 interface IKarmaOracle {
     // ──────────────────────────────────────────────────────────────

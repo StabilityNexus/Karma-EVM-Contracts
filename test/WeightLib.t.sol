@@ -62,15 +62,11 @@ contract WeightLibTest is Test {
     // ──────────────────────────────────────────────────────────────
 
     function test_full_balanced_equal_reserves() public pure {
-        // When reserves are equal and prices are equal, full = simple
         uint256 price = 100000; // DENOMINATOR = 100000
         uint256 reserve = 1000e18;
         uint256 w = WeightLib.computeWeight(500e18, 500e18, price, price, reserve, reserve);
-        // normBull = (500e18 * 100000 / 1e18) * (0.5e18) / 1e18
-        //         = 50_000_000_000 * 500_000_000_000_000_000 / 1e18
-        //         = 25_000_000
-        // weight = min(25000000, 25000000) = 25000000
-        assertEq(w, 25000000, "Equal reserves: weight = normBull = normBear");
+        // normBull = (500e18 * 100000 / 100000) * (1000e18 / 2000e18) = 250e18
+        assertEq(w, 250e18, "Equal reserves: weight = normBull = normBear = 250e18");
     }
 
     function test_full_one_sided_bull() public pure {

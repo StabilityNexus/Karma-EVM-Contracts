@@ -170,9 +170,8 @@ contract KarmaTest is Test {
     //  readValue — weighted average
     // ──────────────────────────────────────────────────────────────
 
-    function test_readValue_no_submissions_reverts() public {
-        vm.expectRevert("No price available");
-        karma.readValue();
+    function test_readValue_no_submissions_returns_zero() public view {
+        assertEq(karma.readValue(), 0, "No submissions -> readValue returns 0");
     }
 
     function test_readValue_multiple_users() public {
@@ -350,5 +349,29 @@ contract KarmaTest is Test {
         (uint256 p,,) = karma.getSubmission(alice);
         assertEq(p, 200e18, "Latest submission overwrites previous");
         assertEq(karma.submissionCount(), 2, "Counter increments for each submission");
+        assertApproxEqRel(
+            karma.readValue(), 200e18, 1e15, "Read value should be updated price, not accumulated"
+        );
+    }
+
+    function test_repeated_submissions_same_block_cannot_amplify_weight() public {
+        // Alice (5000/5000 balanced) submits 100e18
+        bullCoin.mint(alice, 4500e18);
+        bearCoin.mint(alice, 4500e18);
+        vm.prank(alice);
+        karma.submitPrice(100e18);
+
+        // Charlie (50/50 balanced) submits 500e18 50 times in the same block
+        bullCoin.mint(charlie, 50e18);
+        bearCoin.mint(charlie, 50e18);
+        vm.startPrank(charlie);
+        for (uint256 i = 0; i < 50; i++) {
+            karma.submitPrice(500e18);
+        }
+        vm.stopPrank();
+
+        uint256 price = karma.readValue();
+        // Charlie has ~1% of Alice's weight; price stays close to 100, not 463+
+        assertLt(price, 110e18, "Repeated submissions must not accumulate weight");
     }
 }

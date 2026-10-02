@@ -1,391 +1,119 @@
-<!-- Don't delete it -->
-<div name="readme-top"></div>
-
-<!-- Organization Logo -->
-<div align="center" style="display: flex; align-items: center; justify-content: center; gap: 16px;">
-  <img alt="Stability Nexus" src="public/stability.svg" width="175">
-  <img src="public/todo-project-logo.svg" width="175" />
-</div>
-
-&nbsp;
-
-<!-- Organization Name -->
 <div align="center">
-
-[![Static Badge](https://img.shields.io/badge/Stability_Nexus-/TODO-228B22?style=for-the-badge&labelColor=FFC517)](https://TODO.stability.nexus/)
-
-<!-- Correct deployed url to be added -->
-
+  <h1>Karma Protocol</h1>
+  <p><strong>Self-sovereign, fully on-chain prediction-market price oracle</strong></p>
 </div>
 
-<!-- Organization/Project Social Handles -->
-<p align="center">
-<!-- Telegram -->
-<a href="https://t.me/StabilityNexus">
-<img src="https://img.shields.io/badge/Telegram-black?style=flat&logo=telegram&logoColor=white&logoSize=auto&color=24A1DE" alt="Telegram Badge"/></a>
-&nbsp;&nbsp;
-<!-- X (formerly Twitter) -->
-<a href="https://x.com/StabilityNexus">
-<img src="https://img.shields.io/twitter/follow/StabilityNexus" alt="X (formerly Twitter) Badge"/></a>
-&nbsp;&nbsp;
-<!-- Discord -->
-<a href="https://discord.gg/YzDKeEfWtS">
-<img src="https://img.shields.io/discord/995968619034984528?style=flat&logo=discord&logoColor=white&logoSize=auto&label=Discord&labelColor=5865F2&color=57F287" alt="Discord Badge"/></a>
-&nbsp;&nbsp;
-<!-- Blogs -->
-<a href="https://viewpoints.stability.nexus/">
-  <img src="https://img.shields.io/badge/Stable_Viewpoints-Articles-2ea44f?style=flat&labelColor=facc15" alt="Stable Viewpoints"></a>
-&nbsp;&nbsp;
-<!-- LinkedIn -->
-<a href="https://linkedin.com/company/stability-nexus">
-  <img src="https://img.shields.io/badge/LinkedIn-black?style=flat&logo=LinkedIn&logoColor=white&logoSize=auto&color=0A66C2" alt="LinkedIn Badge"></a>
-&nbsp;&nbsp;
-<!-- Youtube -->
-<a href="https://www.youtube.com/@StabilityNexus">
-  <img src="https://img.shields.io/youtube/channel/subscribers/UCZOG4YhFQdlGaLugr_e5BKw?style=flat&logo=youtube&logoColor=white&logoSize=auto&labelColor=FF0000&color=FF0000" alt="Youtube Badge"></a>
-</p>
+[![License: AEL](https://img.shields.io/badge/License-AEL-green.svg)](LICENSE)
+[![Stability Nexus](https://img.shields.io/badge/Stability-Nexus-228B22?style=flat)](https://stability.nexus/)
 
 ---
 
-<div align="center">
-<h1>TODO: Project Name</h1>
-</div>
+## Overview
 
-[TODO](https://TODO.stability.nexus/) is a ... TODO: Project Description.
+Traditional prediction markets and DeFi protocols depend on external oracles (e.g. Chainlink) to determine settlement prices. External oracles introduce third-party trust assumptions, delay risks, outage liabilities, and off-chain dependencies.
 
----
-
-## 🚀 Features
-
-TODO: List your main features here:
-
-- **Feature 1**: Description
-- **Feature 2**: Description
-- **Feature 3**: Description
-- **Feature 4**: Description
+**Karma Protocol** eliminates external oracles. It is an on-chain, participant-driven price oracle where the market participants themselves discover and report prices. Manipulation is prevented using **economic neutrality weighting**: a participant's influence is proportional to their neutrality between opposing market outcomes.
 
 ---
 
-## Project Maturity
+## Core Mechanism
 
-TODO: In the checklist below, mark the items that have been completed and delete items that are not applicable to the current project:
+### 1. Which Pool Does Karma Price?
+Each `Karma` oracle contract is associated with a specific Fate `PredictionPool`.
+- The oracle reads `bullCoin`, `bearCoin`, and `baseToken` reserves directly from the pool.
+- Submissions are evaluated against the participant's holdings in that specific market.
+- Any contract (including Fate pools or external protocols) can consume prices via standard `IOracle` or Chainlink-compatible `latestRoundData()` interfaces.
 
-- [ ] The protocol:
-  - [ ] has been described and formally specified in a paper.
-  - [ ] has had its main properties mathematically proven.
-  - [ ] has been formally verified.
-- [ ] The smart contracts:
-  - [ ] were thoroughly reviewed by at least two knights of The Stable Order.
-  - [ ] were deployed to:
-    - [ ] Ethereum Classic
-    - [ ] Ethereum
-    - [ ] Polygon
-    - [ ] BSC
-    - [ ] Base
+### 2. Neutrality Weighting
+A participant holding only bull coins wants the oracle price to be higher. A participant holding only bear coins wants the price to be lower. Neither can be trusted.
+
+However, a participant holding balanced positions has neutral marginal exposure: a price change does not enrich them at the expense of their other position. Their economic interest is solely in the accuracy and health of the market.
+
+Under Fate's reserve redistribution mechanism:
+$$dP_B / dp = 2 \cdot P_B \cdot q_S / p$$
+$$-dP_S / dp = 2 \cdot P_S \cdot q_B / p$$
+
+Dropping the symmetric factor $2/p$, the economically normalized exposures are:
+$$\text{normalizedBull} = B \times P_B \times q_S$$
+$$\text{normalizedBear} = S \times P_S \times q_B$$
+
+Where:
+- $B$: User's bull coin balance
+- $S$: User's bear coin balance
+- $P_B, P_S$: Current coin selling prices (`priceSell()`, scaled by `COIN_DENOMINATOR = 100_000`)
+- $q_S = \text{bearReserve} / \text{totalReserve}$
+- $q_B = \text{bullReserve} / \text{totalReserve}$
+
+The participant's submission weight is:
+$$\text{Weight} = \min(\text{normalizedBull}, \text{normalizedBear})$$
+
+A one-sided holder has weight $0$. A balanced holder receives weight proportional to their balanced exposure.
+
+### 3. Time-Decayed Weighted Average
+Submissions are aggregated into two decaying accumulators:
+$$\text{weightedPrice}(t) = \sum P_i \cdot W_i \cdot e^{-(t - t_i)/\tau}$$
+$$\text{totalWeight}(t) = \sum W_i \cdot e^{-(t - t_i)/\tau}$$
+
+$$\text{Price}(t) = \frac{\text{weightedPrice}(t)}{\text{totalWeight}(t)}$$
+
+Because the time-decay factor $e^{-\Delta t / \tau}$ cancels out identically in the numerator and denominator ratio, read-time decay is unnecessary and decay is applied when folding in updates.
+
+If no submissions exist or total weight decays to zero, `readValue()` returns `0`, matching the Fate oracle convention.
+
+### 4. Non-Accumulating Resubmissions
+If the same account resubmits a price, their prior contribution is decayed to the current timestamp and subtracted from the accumulators before the new submission is added. This prevents users from artificially multiplying their weight by repeatedly submitting.
 
 ---
 
-## Architecture
+## Security & Flash Loan Considerations
 
-> TODO: Replace with your actual contract architecture. Example below.
+1. **Submission Balances**: Balances are verified at submission time. To prevent dust spam and Sybil attacks, a configurable `minTotalBalance` (default 100 tokens) is enforced.
+2. **Flash Loan & Rapid Sell Resistance**: An attacker attempting to borrow base tokens, buy both sides, submit a manipulated price, and sell back incurs Fate protocol trading fees on both legs (~1.2% total round-trip fee). Because weight is bounded by $\min(\text{normalizedBull}, \text{normalizedBear})$, an attacker must buy substantial quantities of both coins, paying double fees. The cost of manipulation reliably exceeds temporary price influence.
+
+---
+
+## Contract Architecture
 
 ```text
 src/
-├── TODO_Contract.sol       # Core logic contract
+├── Karma.sol               # Core oracle contract (IOracle, IKarmaOracle, Chainlink feeds)
+├── KarmaAdapterFactory.sol # Factory deploying Karma per PredictionPool config
 ├── interfaces/
-│   └── ITODO_Contract.sol  # Interface definitions
-└── libraries/
-    └── TODO_Library.sol    # Shared utility library
-
-script/
-├── Deploy.s.sol            # Deployment script
-└── Interactions.s.sol      # Post-deploy interaction scripts
-
-test/
-├── unit/
-│   └── TODO_ContractTest.t.sol
-└── integration/
-    └── TODO_IntegrationTest.t.sol
+│   ├── IKarmaOracle.sol    # Karma oracle interface
+│   └── IOracle.sol         # Standard Fate IOracle interface
+└── lib/
+    ├── PriceAverager.sol   # Time-decayed weighted averaging library
+    ├── WadExp.sol          # Fixed-point exponential math (WAD)
+    └── WeightLib.sol       # Neutrality weight computation
 ```
-
-> **Contract Diagram** (TODO: add a diagram or ASCII art showing contract relationships)
-You can create Web3 architecture diagrams using:
-
-- [Draw.io](https://draw.io)
-- [Excalidraw](https://excalidraw.com)
-- [Lucidchart](https://lucidchart.com)
-- [Mermaid](https://mermaid.js.org) (for code-based diagrams)
-
-Example structure to include:
-
-- Frontend (DApp UI built with React/Next.js)
-- Wallet integration (MetaMask, WalletConnect, Coinbase Wallet)
-- Web3 provider / RPC (Infura, Alchemy, QuickNode)
-- Smart contracts (Solidity contracts deployed on blockchain)
-- Blockchain network (Ethereum, Polygon, Arbitrum, etc.)
-- Decentralized storage (IPFS, Filecoin, Arweave)
-- Indexing services (The Graph or similar)
-- Optional backend services (Node.js APIs, relayers, indexing)
-- Data flow between the frontend, wallet, smart contracts, and blockchain
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Smart Contracts | Solidity `^0.8.x` |
-| Framework | [Foundry](https://getfoundry.sh/) (forge, cast, anvil) |
-| Libraries | OpenZeppelin (via `lib/`) |
-
----
-
-## Repository Structure
-
-```text
-.
-├── .github/
-│   └── workflows/           # CI, security, gas, fuzz, release pipelines
-├── lib/                     # Foundry dependencies (git submodules)
-├── public/                  # Logos and static assets
-├── script/                  # Forge deployment & interaction scripts
-├── src/                     # Solidity source contracts
-├── test/                    # Forge test suite
-├── .coderabbit.yaml         # CodeRabbit AI review config
-├── .env.example             # Environment variable template
-├── .gitmodules              # Submodule declarations
-├── foundry.toml             # Foundry project config (RPCs, verifiers)
-├── foundry.lock             # Locked dependency versions
-└── README.md
-```
-
----
-
-## 🔗 Repository Links
-
-TODO: Update with your repository structure
-
-1. [Main Repository](https://github.com/StabilityNexus/TODO)
-2. [Frontend](https://github.com/StabilityNexus/TODO/tree/main/frontend) (if separate)
-3. [contract](https://github.com/StabilityNexus/TODO/tree/main/contract) (if separate)
 
 ---
 
 ## Getting Started
 
 ### Prerequisites
-
-| Tool | Version | Install |
-|---|---|---|
-| `git` | any | [git-scm.com](https://git-scm.com/) |
-| `foundryup` | latest | See [getfoundry.sh](https://getfoundry.sh) |
-| `forge` / `cast` / `anvil` | latest | run `foundryup` after install |
-
-Verify installation:
-
-```bash
-forge --version   # e.g. forge 0.3.x
-anvil --version
-cast --version
-```
-
-### Installation
-
-```bash
-# 1. Clone with submodules
-git clone --recurse-submodules https://github.com/StabilityNexus/Template-Repo-EVM-Contracts.git
-cd Template-Repo-EVM-Contracts
-
-# 2. If you forgot --recurse-submodules
-git submodule update --init --recursive
-
-# 3. Install/update Foundry dependencies
-forge install
-```
-
-### Environment Setup
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and fill in:
-
-```env
-# Required for deployment
-PRIVATE_KEY=0x...
-
-# Required for contract verification
-ETHERSCAN_API_KEY=...
-
-# Optional: override default public RPCs
-RPC_ETHEREUM=https://mainnet.infura.io/v3/YOUR_KEY
-RPC_SEPOLIA=https://sepolia.infura.io/v3/YOUR_KEY
-```
-
----
-
-## Usage
+- [Foundry](https://getfoundry.sh/) (`forge`, `cast`, `anvil`)
 
 ### Build
-
 ```bash
 forge build
 ```
 
 ### Test
-
 ```bash
-# Run all tests
 forge test
-
-# Verbose output (shows logs and traces)
-forge test -vvv
-
-# Run a specific test file
-forge test --match-path test/unit/TODO_ContractTest.t.sol
-
-# Run a specific test function
-forge test --match-test testTransfer -vvv
 ```
 
-### Coverage
-
+### Deployment
+To deploy using `KarmaAdapterFactory`:
 ```bash
-forge coverage
-
-# Generate LCOV report
-forge coverage --report lcov
-genhtml lcov.info --output-directory coverage/
+forge script script/DeployKarma.s.sol --rpc-url <RPC_URL> --broadcast
 ```
 
-### Gas Snapshot
-
-```bash
-# Generate snapshot
-forge snapshot
-
-# Compare against last snapshot
-forge snapshot --diff
-```
-
-### Format & Lint
-
-```bash
-forge fmt          # Format Solidity files
-forge fmt --check  # Check without writing (used in CI)
-```
+When deployed via `KarmaAdapterFactory`, ownership of each `Karma` instance is assigned directly to the caller (`msg.sender`), allowing the creator to adjust parameters such as `minTotalBalance`.
 
 ---
 
-## Deployment
+## License
 
-> Make sure your `.env` is configured before deploying.
-
-### Testnet
-
-```bash
-# Deploy to Sepolia (Ethereum testnet)
-forge script script/Deploy.s.sol \
-  --rpc-url sepolia \
-  --broadcast \
-  --verify \
-  -vvvv
-
-# Deploy to Mordor (Ethereum Classic testnet)
-forge script script/Deploy.s.sol \
-  --rpc-url mordor \
-  --broadcast \
-  -vvvv
-```
-
-### Mainnet
-
-```bash
-# Deploy to Ethereum mainnet
-forge script script/Deploy.s.sol \
-  --rpc-url ethereum \
-  --broadcast \
-  --verify \
-  -vvvv
-
-# Deploy to Base
-forge script script/Deploy.s.sol \
-  --rpc-url base \
-  --broadcast \
-  --verify \
-  -vvvv
-```
-
-> ℹ️ RPC aliases (`sepolia`, `ethereum`, `base`, etc.) are pre-configured in `foundry.toml`.
-
----
-
-## Supported Networks
-
-Pre-configured RPC endpoints in `foundry.toml`.
-
-| Network | Type | Chain ID | 
-|---|---|---|---|
-| Ethereum | Mainnet | 1 |
-| Ethereum Classic | Mainnet | 61 |
-| Polygon PoS | Mainnet | 137 | 
-| BNB Smart Chain | Mainnet | 56 |
-| Base | Mainnet | 8453 | 
-| Sepolia | Testnet | 11155111 |
-| Mordor (ETC) | Testnet | 63 |
-
----
-
-## CI/CD Workflows
-
-| Workflow | Trigger | What it does |
-|---|---|---|
-| `ci.yml` | Push / PR | Format check → Build → Unit tests → Coverage report |
-| `security-slither.yml` | Push / PR | Slither static analysis for vulnerabilities |
-| `gas-snapshot.yml` | Push / PR | Gas baseline and regression checks |
-| `nightly-fuzz.yml` | Nightly (cron) | Deep fuzz & invariant testing |
-| `release.yml` | Tag push | Builds and publishes release artifacts |
-
----
-
-## Security
-
-- Static analysis is run on every PR via **Slither** (see `.github/workflows/security-slither.yml`)
-- **CodeRabbit** AI review is enabled via `.coderabbit.yaml`
-- Deep fuzz runs nightly to catch edge cases
-
-> Found a vulnerability? Please **do not open a public issue**. Contact the Stability Nexus team privately via [Discord](https://discord.gg/YzDKeEfWtS) or [Telegram](https://t.me/StabilityNexus).
-
----
-
-## 🙌 Contributing
-
-⭐ Don't forget to star this repository if you find it useful! ⭐
-
-Thank you for considering contributing to this project! Contributions are highly appreciated and welcomed. To ensure smooth collaboration, please refer to our [Contribution Guidelines](./CONTRIBUTING.md).
-
----
-
-## ✨ Maintainers
-
-TODO: Add maintainer information
-
-- [Maintainer Name](https://github.com/username)
-- [Maintainer Name](https://github.com/username)
-
----
-
-## 📍 License
-
-See the [LICENSE](LICENSE) file for details.
-
----
-
-## 💪 Thanks To All Contributors
-
-Thanks a lot for spending your time helping TODO grow. Keep rocking!
-
-[![Contributors](https://contrib.rocks/image?repo=StabilityNexus/TODO)](https://github.com/StabilityNexus/TODO/graphs/contributors)
-
-© 2025 Stability Nexus
+See [LICENSE](LICENSE) (AEL).

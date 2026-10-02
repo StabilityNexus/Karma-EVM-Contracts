@@ -16,14 +16,14 @@ import { Karma } from "../src/Karma.sol";
 ///             --verify
 ///
 ///         Environment variables:
-///           POOL_FACTORY     — PredictionPoolFactory address (required)
+///           POOL_FACTORY     — PredictionPoolFactory address (optional)
 ///           PREDICTION_POOL  — PredictionPool address (optional, to create Karma instance)
 ///           TAU              — Decay time constant (optional, default 124651)
 ///           MIN_BALANCE      — Minimum balance threshold (optional, default 100e18)
 ///           DESCRIPTION      — Oracle description (optional)
 contract DeployKarma is Script {
     function run() external {
-        address poolFactory = vm.envAddress("POOL_FACTORY");
+        address poolFactory = vm.envOr("POOL_FACTORY", address(0));
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
 
         vm.startBroadcast(deployerKey);
