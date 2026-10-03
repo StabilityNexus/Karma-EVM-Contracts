@@ -6,18 +6,9 @@ import { KarmaAdapterFactory } from "../src/KarmaAdapterFactory.sol";
 import { Karma } from "../src/Karma.sol";
 import { MockBaseToken, MockCoin, MockPredictionPool } from "./mocks/Mocks.sol";
 
-contract MockPoolFactoryWithoutRegister {
-    // Post Fate-Solidity PR #44: pool factory does NOT have registerOracle
-    // and reverts on any unexpected call
-    fallback() external {
-        revert("registerOracle removed");
-    }
-}
-
+// Factory tests — deployment, caching, adapter interface.
 contract KarmaAdapterFactoryTest is Test {
-    KarmaAdapterFactory public factoryWithPoolFactory;
-    KarmaAdapterFactory public factoryWithoutPoolFactory;
-    MockPoolFactoryWithoutRegister public mockPoolFactory;
+    KarmaAdapterFactory public factory;
 
     MockBaseToken public baseToken;
     MockCoin public bullCoin;
@@ -30,9 +21,7 @@ contract KarmaAdapterFactoryTest is Test {
     uint256 constant MIN_BALANCE = 100e18;
 
     function setUp() public {
-        mockPoolFactory = new MockPoolFactoryWithoutRegister();
-        factoryWithPoolFactory = new KarmaAdapterFactory(address(mockPoolFactory));
-        factoryWithoutPoolFactory = new KarmaAdapterFactory(address(0));
+        factory = new KarmaAdapterFactory();
 
         baseToken = new MockBaseToken();
         bullCoin = new MockCoin("Bull", "BULL", address(baseToken));
@@ -45,51 +34,48 @@ contract KarmaAdapterFactoryTest is Test {
         bearCoin.mint(address(this), 10000e18);
     }
 
-    function test_createKarma_ownership_transferred_to_caller() public {
-        vm.prank(user);
-        address adapter =
-            factoryWithoutPoolFactory.createKarma(address(pool), TAU, MIN_BALANCE, "User Karma");
+    function test_createKarma_deploys() public {
+        address adapter = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Test Karma");
 
         Karma karma = Karma(adapter);
-        assertEq(karma.owner(), user, "Creator user must be owner");
-
-        // User can call setMinTotalBalance
-        vm.prank(user);
-        karma.setMinTotalBalance(250e18);
-        assertEq(karma.minTotalBalance(), 250e18, "Owner can set minTotalBalance");
-
-        // Non-owner cannot call setMinTotalBalance
-        vm.prank(address(this));
-        vm.expectRevert();
-        karma.setMinTotalBalance(500e18);
+        assertEq(address(karma.pool()), address(pool));
+        assertEq(karma.tau(), TAU);
+        assertEq(karma.minTotalBalance(), MIN_BALANCE);
     }
 
     function test_createKarma_caches_adapter() public {
-        address a1 =
-            factoryWithoutPoolFactory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma 1");
-        address a2 = factoryWithoutPoolFactory.createKarma(
-            address(pool), TAU, MIN_BALANCE, "Karma 1 duplicate"
-        );
+        address a1 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma 1");
+        address a2 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma 1 duplicate");
         assertEq(a1, a2, "Same config must return cached adapter");
-        assertEq(factoryWithoutPoolFactory.getKarma(address(pool), TAU, MIN_BALANCE), a1);
+        assertEq(factory.getKarma(address(pool), TAU, MIN_BALANCE), a1);
+    }
+
+    function test_createKarma_different_config_different_adapter() public {
+        address a1 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma A");
+        address a2 = factory.createKarma(address(pool), TAU, 200e18, "Karma B");
+        assertTrue(a1 != a2, "Different minBalance should produce different adapter");
     }
 
     function test_createAdapter_via_bytes() public {
         bytes memory params = abi.encode(address(pool), TAU, MIN_BALANCE, "Generic Adapter");
         vm.prank(user);
-        address adapter = factoryWithoutPoolFactory.createAdapter(params);
-
-        Karma karma = Karma(adapter);
-        assertEq(karma.owner(), user, "Caller should be owner when calling createAdapter");
-    }
-
-    function test_createKarma_succeeds_with_pool_factory_lacking_registerOracle() public {
-        // Verifies Fate-Solidity PR #44 compatibility: does not call registerOracle,
-        // so createKarma does not revert against modern Fate pool factories.
-        address adapter = factoryWithPoolFactory.createKarma(
-            address(pool), TAU, MIN_BALANCE, "Karma with modern factory"
-        );
+        address adapter = factory.createAdapter(params);
 
         assertTrue(adapter != address(0), "Adapter must deploy successfully");
+        Karma karma = Karma(adapter);
+        assertEq(address(karma.pool()), address(pool));
+    }
+
+    function test_createKarma_defaults() public {
+        address adapter = factory.createKarma(address(pool), "Default Karma");
+        Karma karma = Karma(adapter);
+        assertEq(karma.tau(), 124651, "Should use DEFAULT_TAU");
+        assertEq(karma.minTotalBalance(), 100e18, "Should use DEFAULT_MIN_BALANCE");
+    }
+
+    function test_createKarma_emits_event() public {
+        vm.expectEmit(true, false, false, true);
+        emit KarmaAdapterFactory.KarmaCreated(address(pool), address(0), TAU, MIN_BALANCE, "Test");
+        factory.createKarma(address(pool), TAU, MIN_BALANCE, "Test");
     }
 }

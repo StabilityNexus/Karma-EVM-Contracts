@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/// @title MockBaseToken — Simple ERC20 for testing
+// MockBaseToken — Simple ERC20 for testing
 contract MockBaseToken is ERC20 {
     constructor() ERC20("Mock Base", "BASE") { }
 
@@ -13,8 +13,8 @@ contract MockBaseToken is ERC20 {
     }
 }
 
-/// @title MockCoin — Simulates Coin with priceSell() and reserve tracking
-/// @dev   The "reserve" is simply the baseToken balance held by this contract.
+// MockCoin — Simulates Coin with priceSell() and reserve tracking.
+// The "reserve" is simply the baseToken balance held by this contract.
 contract MockCoin is ERC20 {
     IERC20 public immutable asset;
     uint256 public constant DENOMINATOR = 100_000;
@@ -31,7 +31,7 @@ contract MockCoin is ERC20 {
         _burn(from, amount);
     }
 
-    /// @notice Simulates Coin.priceSell() = reserve * DENOMINATOR / supply
+    // Simulates Coin.priceSell() = reserve * DENOMINATOR / supply
     function priceSell() external view returns (uint256) {
         uint256 supply = totalSupply();
         if (supply == 0) return DENOMINATOR;
@@ -39,7 +39,7 @@ contract MockCoin is ERC20 {
     }
 }
 
-/// @title MockPredictionPool — Simulates PredictionPool for Karma testing
+// MockPredictionPool — Simulates PredictionPool for Karma testing
 contract MockPredictionPool {
     IERC20 public baseToken;
     address public bullCoin;

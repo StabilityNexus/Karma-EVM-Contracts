@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import { Test } from "forge-std/Test.sol";
 import { PriceAverager } from "../src/lib/PriceAverager.sol";
 
+// Thin wrapper to expose PriceAverager library methods for testing.
 contract PriceAveragerWrapper {
     using PriceAverager for PriceAverager.State;
 
@@ -24,10 +25,6 @@ contract PriceAveragerWrapper {
         state.removeContribution(prevPrice, prevWeight, prevTimestamp, tau);
     }
 
-    function getPrice(uint256 tau) external view returns (uint256) {
-        return state.getPrice(tau);
-    }
-
     function getPrice() external view returns (uint256) {
         return state.getPrice();
     }
@@ -45,6 +42,7 @@ contract PriceAveragerWrapper {
     }
 }
 
+// Unit and fuzz tests for PriceAverager.
 contract PriceAveragerTest is Test {
     PriceAveragerWrapper wrapper;
     uint256 constant WAD = 1e18;
@@ -54,18 +52,17 @@ contract PriceAveragerTest is Test {
         wrapper = new PriceAveragerWrapper();
     }
 
-    // --- Initial state ---
+    // -- Initial state --
 
     function test_initial_no_price() public view {
         assertFalse(wrapper.hasPrice(), "Should have no price initially");
     }
 
     function test_initial_getPrice_returns_zero() public view {
-        assertEq(wrapper.getPrice(TAU), 0, "Initial price should be 0");
-        assertEq(wrapper.getPrice(), 0, "Initial price (no arg) should be 0");
+        assertEq(wrapper.getPrice(), 0, "Initial price should be 0");
     }
 
-    // --- Single submission ---
+    // -- Single submission --
 
     function test_single_submission() public {
         uint256 price = 67000e18;
@@ -74,7 +71,7 @@ contract PriceAveragerTest is Test {
         wrapper.update(price, weight, TAU);
 
         assertTrue(wrapper.hasPrice(), "Should have price after submission");
-        assertEq(wrapper.getPrice(TAU), price, "Single submission -> exact price");
+        assertEq(wrapper.getPrice(), price, "Single submission -> exact price");
     }
 
     function test_zero_weight_ignored() public {
@@ -82,7 +79,7 @@ contract PriceAveragerTest is Test {
         assertFalse(wrapper.hasPrice(), "Zero weight should not count as submission");
     }
 
-    // --- Multiple submissions ---
+    // -- Multiple submissions --
 
     function test_two_equal_weight_same_time() public {
         uint256 w = 0.5e18;
@@ -90,7 +87,7 @@ contract PriceAveragerTest is Test {
         wrapper.update(100e18, w, TAU);
         wrapper.update(200e18, w, TAU);
 
-        uint256 result = wrapper.getPrice(TAU);
+        uint256 result = wrapper.getPrice();
         assertApproxEqAbs(result, 150e18, 1e15, "Equal weight average should be 150");
     }
 
@@ -99,11 +96,11 @@ contract PriceAveragerTest is Test {
         wrapper.update(200e18, 0.1e18, TAU);
 
         // weighted avg = (100*0.5 + 200*0.1) / (0.5 + 0.1) = 70/0.6 ~= 116.67
-        uint256 result = wrapper.getPrice(TAU);
+        uint256 result = wrapper.getPrice();
         assertApproxEqAbs(result, 116666666666666666666, 1e15, "Weighted avg ~= 116.67");
     }
 
-    // --- Resubmission / Remove contribution ---
+    // -- Resubmission / Remove contribution --
 
     function test_remove_contribution_on_resubmit() public {
         uint64 t0 = uint64(block.timestamp);
@@ -117,18 +114,18 @@ contract PriceAveragerTest is Test {
         wrapper.update(200e18, 0.5e18, TAU);
 
         // Since it's the sole contributor, price should be exactly 200
-        uint256 result = wrapper.getPrice(TAU);
+        uint256 result = wrapper.getPrice();
         assertApproxEqRel(result, 200e18, 1e15, "Resubmitted price should replace old price");
     }
 
-    // --- Time decay ---
+    // -- Time decay --
 
     function test_decay_fresh_submission_dominates() public {
         wrapper.update(100e18, 0.5e18, TAU);
         vm.warp(block.timestamp + 86400);
         wrapper.update(200e18, 0.5e18, TAU);
 
-        uint256 result = wrapper.getPrice(TAU);
+        uint256 result = wrapper.getPrice();
         assertGt(result, 150e18, "Fresh submission should pull price toward 200");
         assertLt(result, 200e18, "Old submission should still have some influence");
     }
@@ -138,7 +135,7 @@ contract PriceAveragerTest is Test {
         vm.warp(block.timestamp + 864000);
         wrapper.update(500e18, 0.5e18, TAU);
 
-        uint256 result = wrapper.getPrice(TAU);
+        uint256 result = wrapper.getPrice();
         assertApproxEqAbs(result, 500e18, 5e18, "Very old submission nearly irrelevant");
     }
 
@@ -146,18 +143,18 @@ contract PriceAveragerTest is Test {
         wrapper.update(100e18, 0.5e18, TAU);
         wrapper.update(200e18, 0.5e18, TAU);
 
-        uint256 result = wrapper.getPrice(TAU);
+        uint256 result = wrapper.getPrice();
         assertApproxEqAbs(result, 150e18, 1e15, "No time elapsed -> no decay -> simple avg");
     }
 
-    // --- Edge cases ---
+    // -- Edge cases --
 
     function test_large_delta_t() public {
         wrapper.update(100e18, 0.5e18, TAU);
         vm.warp(block.timestamp + 365 days);
         wrapper.update(42e18, 0.1e18, TAU);
 
-        uint256 result = wrapper.getPrice(TAU);
+        uint256 result = wrapper.getPrice();
         assertApproxEqAbs(result, 42e18, 1e16, "After 1 year, old data fully decayed");
     }
 
@@ -167,12 +164,12 @@ contract PriceAveragerTest is Test {
             wrapper.update((100 + i * 10) * 1e18, 0.3e18, TAU);
         }
 
-        uint256 result = wrapper.getPrice(TAU);
+        uint256 result = wrapper.getPrice();
         assertGt(result, 100e18, "Should be above earliest price");
         assertLt(result, 150e18, "Should be below latest + margin");
     }
 
-    // --- Fuzz tests ---
+    // -- Fuzz tests --
 
     function testFuzz_single_submission_returns_exact(uint256 price, uint256 weight) public {
         price = bound(price, 1e15, 1e30);
@@ -180,7 +177,7 @@ contract PriceAveragerTest is Test {
 
         wrapper.update(price, weight, TAU);
 
-        uint256 result = wrapper.getPrice(TAU);
+        uint256 result = wrapper.getPrice();
         assertApproxEqRel(result, price, 1e14, "Single submission must return ~exact price");
     }
 
@@ -201,7 +198,7 @@ contract PriceAveragerTest is Test {
         vm.warp(block.timestamp + timeDelta);
         wrapper.update(p2, w2, TAU);
 
-        uint256 result = wrapper.getPrice(TAU);
+        uint256 result = wrapper.getPrice();
         assertGt(result, 0, "Price must always be positive");
     }
 
@@ -210,6 +207,6 @@ contract PriceAveragerTest is Test {
         weight = bound(weight, 1, 0.5e18);
 
         wrapper.update(price, weight, TAU);
-        wrapper.getPrice(TAU);
+        wrapper.getPrice();
     }
 }

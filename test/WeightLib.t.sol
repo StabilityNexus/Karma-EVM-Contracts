@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import { Test } from "forge-std/Test.sol";
 import { WeightLib } from "../src/lib/WeightLib.sol";
 
-/// @title WeightLib Tests — Unit and fuzz tests for neutrality weight calculation
+// WeightLib Tests — Unit and fuzz tests for neutrality weight calculation
 contract WeightLibTest is Test {
     uint256 constant SCALE = 1e18;
 

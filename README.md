@@ -22,7 +22,10 @@ Traditional prediction markets and DeFi protocols depend on external oracles (e.
 Each `Karma` oracle contract is associated with a specific Fate `PredictionPool`.
 - The oracle reads `bullCoin`, `bearCoin`, and `baseToken` reserves directly from the pool.
 - Submissions are evaluated against the participant's holdings in that specific market.
-- Any contract (including Fate pools or external protocols) can consume prices via standard `IOracle` or Chainlink-compatible `latestRoundData()` interfaces.
+- **Pool Lifecycle & Oracle Immutability**: In Fate-Solidity, prediction pools have immutable oracles set at deployment (there is no `updateOracle` function). Karma seamlessly fits this architecture:
+  - **New Pools**: A `Karma` oracle instance can be deployed first and passed as the oracle address when deploying a new Fate `PredictionPool`.
+  - **Existing Pools**: A `Karma` oracle can be deployed for an existing pool, allowing subsequent pools, downstream derivative markets, or external protocols to consume prices.
+  - **Shared Oracles**: Any contract can consume prices via standard `IOracle` (`readValue()`, `readValueInterval()`) or Chainlink-compatible `latestRoundData()` interfaces.
 
 ### 2. Neutrality Weighting
 A participant holding only bull coins wants the oracle price to be higher. A participant holding only bear coins wants the price to be lower. Neither can be trusted.
@@ -65,10 +68,22 @@ If the same account resubmits a price, their prior contribution is decayed to th
 
 ---
 
-## Security & Flash Loan Considerations
+## Security & Economic Guarantees
 
-1. **Submission Balances**: Balances are verified at submission time. To prevent dust spam and Sybil attacks, a configurable `minTotalBalance` (default 100 tokens) is enforced.
-2. **Flash Loan & Rapid Sell Resistance**: An attacker attempting to borrow base tokens, buy both sides, submit a manipulated price, and sell back incurs Fate protocol trading fees on both legs (~1.2% total round-trip fee). Because weight is bounded by $\min(\text{normalizedBull}, \text{normalizedBear})$, an attacker must buy substantial quantities of both coins, paying double fees. The cost of manipulation reliably exceeds temporary price influence.
+1. **Ownerless & Immutable Parameters**:
+   - `Karma` contracts have no admin keys, no owner, and no privileged functions.
+   - `pool`, `tau`, `minTotalBalance`, and `description` are all set at construction and immutable.
+   - Because `minTotalBalance` cannot be modified after deployment, shared users of an oracle instance are fully protected from rug-pull parameter alterations.
+
+2. **Sybil & Dust Spam Resistance**:
+   - Balances are verified at submission time: a user's total balance (`bullCoin.balanceOf(user) + bearCoin.balanceOf(user)`) must meet or exceed `minTotalBalance` (default: 100 tokens).
+   - Splitting capital across multiple wallets offers zero mathematical advantage due to the sub-additive/linear property of $\min(x, y)$, while sub-threshold wallets revert.
+
+3. **Fee-Cost Trade-Off & Flash Loan Resistance**:
+   - Acquiring balanced positions in the same transaction (e.g. via flash loans or immediate market buys) to skew the oracle price requires purchasing both bull and bear coins.
+   - Fate charges protocol trading fees on both legs (~1.2% round-trip), plus any slippage incurred.
+   - Because Karma aggregates prices via an exponential time-decay accumulator rather than taking an instantaneous spot snapshot, a single-block submission cannot permanently displace the historical time-weighted average without locking up capital over an extended duration.
+   - The fee and slippage costs of entering and exiting the position reliably exceed any short-term profit extractable from manipulating the oracle price.
 
 ---
 
@@ -110,7 +125,7 @@ To deploy using `KarmaAdapterFactory`:
 forge script script/DeployKarma.s.sol --rpc-url <RPC_URL> --broadcast
 ```
 
-When deployed via `KarmaAdapterFactory`, ownership of each `Karma` instance is assigned directly to the caller (`msg.sender`), allowing the creator to adjust parameters such as `minTotalBalance`.
+`KarmaAdapterFactory` caches each `Karma` instance by `(pool, tau, minBalance)`. If an instance with the specified parameters already exists, the factory returns the existing address, enabling gas-efficient oracle sharing across protocols.
 
 ---
 

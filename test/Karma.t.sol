@@ -6,7 +6,7 @@ import { Karma } from "../src/Karma.sol";
 import { IKarmaOracle } from "../src/interfaces/IKarmaOracle.sol";
 import { MockBaseToken, MockCoin, MockPredictionPool } from "./mocks/Mocks.sol";
 
-/// @title Karma Tests -- Core contract tests for price submission, weight, IOracle, Chainlink compat
+// Core contract tests for price submission, weight, IOracle, Chainlink compat.
 contract KarmaTest is Test {
     Karma public karma;
     MockBaseToken public baseToken;
@@ -17,15 +17,12 @@ contract KarmaTest is Test {
     address public alice = makeAddr("alice");
     address public bob = makeAddr("bob");
     address public charlie = makeAddr("charlie");
-    address public owner;
 
     uint256 constant TAU = 124651;
     uint256 constant MIN_BALANCE = 100e18;
     uint256 constant WAD = 1e18;
 
     function setUp() public {
-        owner = address(this);
-
         // Deploy mock tokens
         baseToken = new MockBaseToken();
         bullCoin = new MockCoin("Bull", "BULL", address(baseToken));
@@ -56,9 +53,7 @@ contract KarmaTest is Test {
         // Charlie has nothing (will get tokens as needed)
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  Constructor
-    // ──────────────────────────────────────────────────────────────
+    // -- Constructor --
 
     function test_constructor_state() public view {
         assertEq(address(karma.pool()), address(pool));
@@ -81,9 +76,12 @@ contract KarmaTest is Test {
         assertEq(k.minTotalBalance(), 100e18, "Should use DEFAULT_MIN_BALANCE");
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  submitPrice — happy path
-    // ──────────────────────────────────────────────────────────────
+    function test_minTotalBalance_is_immutable() public view {
+        // minTotalBalance is set at construction and cannot be changed.
+        assertEq(karma.minTotalBalance(), MIN_BALANCE);
+    }
+
+    // -- submitPrice — happy path --
 
     function test_submitPrice_balanced_user() public {
         uint256 price = 67000e18;
@@ -127,9 +125,7 @@ contract KarmaTest is Test {
         assertGt(aliceWeight, bobWeight, "Balanced Alice should have higher weight than biased Bob");
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  submitPrice — reverts
-    // ──────────────────────────────────────────────────────────────
+    // -- submitPrice — reverts --
 
     function test_submitPrice_zero_price_reverts() public {
         vm.prank(alice);
@@ -166,9 +162,7 @@ contract KarmaTest is Test {
         karma.submitPrice(67000e18);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  readValue — weighted average
-    // ──────────────────────────────────────────────────────────────
+    // -- readValue — weighted average --
 
     function test_readValue_no_submissions_returns_zero() public view {
         assertEq(karma.readValue(), 0, "No submissions -> readValue returns 0");
@@ -189,9 +183,7 @@ contract KarmaTest is Test {
         assertLt(price, 150e18, "Should be closer to Alice's price (higher weight)");
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  readValueInterval
-    // ──────────────────────────────────────────────────────────────
+    // -- readValueInterval --
 
     function test_readValueInterval() public {
         vm.prank(alice);
@@ -202,22 +194,15 @@ contract KarmaTest is Test {
         assertEq(minVal, 67000e18);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  getWeight
-    // ──────────────────────────────────────────────────────────────
+    // -- getWeight --
 
     function test_getWeight_balanced() public view {
         uint256 w = karma.getWeight(alice);
-        // Alice: 500/500 balanced with equal reserves
-        // normBull = (500e18 * 100000 / 1e18) * (0.5e18) / 1e18 = 25000
-        // weight = min(25000, 25000) = 25000
         assertGt(w, 0, "Balanced user should have non-zero weight");
     }
 
     function test_getWeight_biased() public view {
         uint256 w = karma.getWeight(bob);
-        // Bob: 900/100 biased -> weight = min(normBull, normBear)
-        // The smaller side determines the weight
         assertGt(w, 0, "Biased user > 0");
     }
 
@@ -226,9 +211,7 @@ contract KarmaTest is Test {
         assertEq(w, 0, "No tokens -> zero weight");
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  lastUpdated
-    // ──────────────────────────────────────────────────────────────
+    // -- lastUpdated --
 
     function test_lastUpdated_initial() public view {
         assertEq(karma.lastUpdated(), 0, "No submissions -> lastUpdated = 0");
@@ -241,17 +224,13 @@ contract KarmaTest is Test {
         assertEq(karma.lastUpdated(), 1000);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  description
-    // ──────────────────────────────────────────────────────────────
+    // -- description --
 
     function test_description() public view {
         assertEq(karma.description(), "Test Karma Oracle");
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  hasPrice
-    // ──────────────────────────────────────────────────────────────
+    // -- hasPrice --
 
     function test_hasPrice() public {
         assertFalse(karma.hasPrice(), "Initially no price");
@@ -262,9 +241,7 @@ contract KarmaTest is Test {
         assertTrue(karma.hasPrice(), "Should have price after submission");
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  Chainlink compatibility
-    // ──────────────────────────────────────────────────────────────
+    // -- Chainlink compatibility --
 
     function test_latestRoundData() public {
         vm.warp(1000);
@@ -294,30 +271,7 @@ contract KarmaTest is Test {
         assertEq(karma.version(), 1);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    //  Admin
-    // ──────────────────────────────────────────────────────────────
-
-    function test_setMinTotalBalance() public {
-        karma.setMinTotalBalance(200e18);
-        assertEq(karma.minTotalBalance(), 200e18);
-    }
-
-    function test_setMinTotalBalance_emits_event() public {
-        vm.expectEmit(false, false, false, true);
-        emit IKarmaOracle.MinBalanceUpdated(MIN_BALANCE, 200e18);
-        karma.setMinTotalBalance(200e18);
-    }
-
-    function test_setMinTotalBalance_onlyOwner() public {
-        vm.prank(alice);
-        vm.expectRevert();
-        karma.setMinTotalBalance(200e18);
-    }
-
-    // ──────────────────────────────────────────────────────────────
-    //  Multiple submissions over time (integration)
-    // ──────────────────────────────────────────────────────────────
+    // -- Multiple submissions over time (integration) --
 
     function test_multiple_submissions_over_time() public {
         // Alice submits at t=0

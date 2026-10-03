@@ -1,59 +1,42 @@
 // SPDX-License-Identifier: AEL
 pragma solidity ^0.8.23;
 
-/// @title IKarmaOracle — Extended oracle interface for Karma
-/// @notice Combines IOracle compatibility, Karma price submission
-///         functions, and a Chainlink-compatible latestRoundData() view.
+// Extended oracle interface for Karma.
+// Combines IOracle compatibility, Karma price submission, and
+// Chainlink-compatible latestRoundData().
 interface IKarmaOracle {
-    // ──────────────────────────────────────────────────────────────
-    //  IOracle compatibility (PredictionPool integration)
-    // ──────────────────────────────────────────────────────────────
+    // -- IOracle compatibility (PredictionPool integration) --
 
-    /// @notice Returns the current time-decayed weighted average price
+    // Current time-decayed weighted average price.
     function readValue() external view returns (uint256 value);
 
-    /// @notice Returns (price, price) — Karma is a point-estimate oracle
+    // Returns (price, price) — Karma is a point-estimate oracle.
     function readValueInterval() external view returns (uint256 minValue, uint256 maxValue);
 
-    /// @notice Timestamp of the most recent price submission
+    // Timestamp of the most recent price submission.
     function lastUpdated() external view returns (uint256 timestamp);
 
-    /// @notice Human-readable description of this oracle instance
+    // Human-readable description of this oracle instance.
     function description() external view returns (string memory);
 
-    // ──────────────────────────────────────────────────────────────
-    //  Karma-specific
-    // ──────────────────────────────────────────────────────────────
+    // -- Karma-specific --
 
-    /// @notice Submit a price observation; influence is weighted by neutrality
-    /// @param price The submitted price (WAD-scaled, must be > 0)
+    // Submit a price observation; influence weighted by neutrality.
+    // price must be WAD-scaled and > 0.
     function submitPrice(uint256 price) external;
 
-    /// @notice Compute the current neutrality weight for any address
-    /// @param user The address to query
-    /// @return weight Neutrality weight in [0, 0.5e18]
+    // Current neutrality weight for any address.
     function getWeight(address user) external view returns (uint256 weight);
 
-    /// @notice Retrieve the most recent submission by an address
-    /// @param user The address to query
-    /// @return price     Submitted price (0 if never submitted)
-    /// @return weight    Weight at time of submission
-    /// @return timestamp Block timestamp of submission
+    // Most recent submission by an address.
     function getSubmission(address user)
         external
         view
         returns (uint256 price, uint256 weight, uint256 timestamp);
 
-    // ──────────────────────────────────────────────────────────────
-    //  Chainlink-compatible
-    // ──────────────────────────────────────────────────────────────
+    // -- Chainlink-compatible --
 
-    /// @notice Chainlink AggregatorV3-compatible view
-    /// @return roundId         Submission counter
-    /// @return answer          Current price as int256
-    /// @return startedAt       First submission timestamp
-    /// @return updatedAt       Most recent submission timestamp
-    /// @return answeredInRound Same as roundId
+    // AggregatorV3-compatible view.
     function latestRoundData()
         external
         view
@@ -65,15 +48,10 @@ interface IKarmaOracle {
             uint80 answeredInRound
         );
 
-    // ──────────────────────────────────────────────────────────────
-    //  Events
-    // ──────────────────────────────────────────────────────────────
+    // -- Events --
 
-    /// @notice Emitted on every successful price submission
+    // Emitted on every successful price submission.
     event PriceSubmitted(
         address indexed submitter, uint256 price, uint256 weight, uint256 timestamp
     );
-
-    /// @notice Emitted when the minimum balance threshold is updated
-    event MinBalanceUpdated(uint256 oldMin, uint256 newMin);
 }

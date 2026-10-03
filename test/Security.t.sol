@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Karma } from "../src/Karma.sol";
 import { MockBaseToken, MockCoin, MockPredictionPool } from "./mocks/Mocks.sol";
 
-/// @title Security Tests -- Sybil resistance, whale resistance, flash-loan simulation, reentrancy
+// Security Tests -- Sybil resistance, whale resistance, flash-loan simulation, reentrancy
 contract SecurityTest is Test {
     Karma public karma;
     MockBaseToken public baseToken;

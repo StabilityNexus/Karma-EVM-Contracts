@@ -2,7 +2,6 @@
 pragma solidity ^0.8.23;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { IOracle } from "./interfaces/IOracle.sol";
@@ -28,10 +27,13 @@ interface ICoinReader {
 // of their bull/bear holdings. Equal economic exposure to up/down moves gives
 // maximum weight; one-sided holdings give zero weight. Older submissions decay
 // exponentially so the oracle tracks fresh consensus.
-contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
+//
+// All configuration is immutable. The factory caches instances by
+// (pool, tau, minTotalBalance) so every consumer sharing a config key
+// gets the same oracle — no owner can change the rules after deployment.
+contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
     using PriceAverager for PriceAverager.State;
 
-    uint256 public constant SCALE = 1e18;
     uint256 public constant COIN_DENOMINATOR = 100_000;
     uint256 public constant DEFAULT_TAU = 124651;
     uint256 public constant DEFAULT_MIN_BALANCE = 100e18;
@@ -41,9 +43,9 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
     address public immutable bullCoin;
     address public immutable bearCoin;
     uint256 public immutable tau;
+    uint256 public immutable minTotalBalance;
 
     string private _description;
-    uint256 public minTotalBalance;
     PriceAverager.State private _averager;
     uint256 public submissionCount;
     uint256 public firstSubmissionTime;
@@ -60,11 +62,8 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
     error InsufficientBalance(uint256 totalBalance, uint256 minRequired);
     error ZeroWeight();
     error InvalidPool();
-    error InvalidTau();
 
-    constructor(address _pool, uint256 _tau, uint256 _minTotalBalance, string memory desc)
-        Ownable(msg.sender)
-    {
+    constructor(address _pool, uint256 _tau, uint256 _minTotalBalance, string memory desc) {
         if (_pool == address(0)) revert InvalidPool();
 
         pool = IPredictionPoolReader(_pool);
@@ -213,13 +212,5 @@ contract Karma is IOracle, IKarmaOracle, Ownable, ReentrancyGuard {
 
     function version() external pure returns (uint256) {
         return 1;
-    }
-
-    // --- Admin ---
-
-    function setMinTotalBalance(uint256 newMinBalance) external onlyOwner {
-        uint256 oldMin = minTotalBalance;
-        minTotalBalance = newMinBalance;
-        emit MinBalanceUpdated(oldMin, newMinBalance);
     }
 }

@@ -30,7 +30,7 @@ pragma solidity ^0.8.23;
 library WadExp {
     error ExpOverflow();
 
-    /// @notice Returns exp(x) in WAD. Monotonic approximation, credit Remco Bloemen (MIT).
+    // Returns exp(x) in WAD. Monotonic approximation, credit Remco Bloemen (MIT).
     function expWad(int256 x) internal pure returns (int256 r) {
         unchecked {
             if (x <= -41446531673892822313) return r;

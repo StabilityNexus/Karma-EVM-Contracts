@@ -94,18 +94,6 @@ library PriceAverager {
         price = (self.weightedPrice * WAD) / self.totalWeight;
     }
 
-    // Backward-compatible overload accepting tau parameter.
-    function getPrice(
-        State storage self,
-        uint256 /*tau*/
-    )
-        internal
-        view
-        returns (uint256 price)
-    {
-        return getPrice(self);
-    }
-
     // True once at least one submission has been recorded.
     function hasPrice(State storage self) internal view returns (bool) {
         return self.lastUpdateTime > 0 && self.totalWeight > 0;
