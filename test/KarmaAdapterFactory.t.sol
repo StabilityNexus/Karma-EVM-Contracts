@@ -78,4 +78,15 @@ contract KarmaAdapterFactoryTest is Test {
         emit KarmaAdapterFactory.KarmaCreated(address(pool), address(0), TAU, MIN_BALANCE, "Test");
         factory.createKarma(address(pool), TAU, MIN_BALANCE, "Test");
     }
+
+    function test_createKarma_zero_normalizes_to_default_and_caches() public {
+        address a1 = factory.createKarma(address(pool), 0, 0, "Karma 0");
+        address a2 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma explicit");
+        address a3 = factory.createKarma(address(pool), "Karma default");
+
+        assertEq(a1, a2, "Zero params should normalize and share same adapter as explicit defaults");
+        assertEq(a1, a3, "Zero params should normalize and share same adapter as default overload");
+        assertEq(factory.getKarma(address(pool), 0, 0), a1);
+        assertEq(factory.getKarma(address(pool), TAU, MIN_BALANCE), a1);
+    }
 }

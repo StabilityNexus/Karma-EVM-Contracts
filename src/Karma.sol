@@ -34,7 +34,6 @@ interface ICoinReader {
 contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
     using PriceAverager for PriceAverager.State;
 
-    uint256 public constant COIN_DENOMINATOR = 100_000;
     uint256 public constant DEFAULT_TAU = 124651;
     uint256 public constant DEFAULT_MIN_BALANCE = 100e18;
 

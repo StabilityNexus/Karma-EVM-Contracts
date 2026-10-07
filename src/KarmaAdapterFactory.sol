@@ -62,20 +62,24 @@ contract KarmaAdapterFactory is IAdapterFactory {
         internal
         returns (address adapter)
     {
-        bytes32 key = _key(pool, tau, minBalance);
+        uint256 effectiveTau = tau > 0 ? tau : DEFAULT_TAU;
+        uint256 effectiveMinBalance = minBalance > 0 ? minBalance : DEFAULT_MIN_BALANCE;
+        bytes32 key = _key(pool, effectiveTau, effectiveMinBalance);
 
         if (adapters[key] != address(0)) {
             return adapters[key];
         }
 
-        Karma karma = new Karma(pool, tau, minBalance, desc);
+        Karma karma = new Karma(pool, effectiveTau, effectiveMinBalance, desc);
         adapter = address(karma);
         adapters[key] = adapter;
 
-        emit KarmaCreated(pool, adapter, tau, minBalance, desc);
+        emit KarmaCreated(pool, adapter, effectiveTau, effectiveMinBalance, desc);
     }
 
     function _key(address pool, uint256 tau, uint256 minBalance) internal pure returns (bytes32) {
-        return keccak256(abi.encode(pool, tau, minBalance));
+        uint256 effectiveTau = tau > 0 ? tau : DEFAULT_TAU;
+        uint256 effectiveMinBalance = minBalance > 0 ? minBalance : DEFAULT_MIN_BALANCE;
+        return keccak256(abi.encode(pool, effectiveTau, effectiveMinBalance));
     }
 }
