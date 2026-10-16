@@ -20,7 +20,7 @@ env:
 
 jobs:
   checks:
-    name: Format, Build, Test, Coverage
+    name: Format, Build, Test, Gas, Coverage
     runs-on: ubuntu-latest
 
     steps:
@@ -51,6 +51,16 @@ jobs:
 
       - name: Run tests
         run: forge test -vvv
+
+      - name: Gas snapshot
+        run: forge snapshot
+
+      - name: Upload gas snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: gas-snapshot
+          path: .gas-snapshot
+          if-no-files-found: warn
 
       - name: Run coverage
         run: forge coverage --report summary
