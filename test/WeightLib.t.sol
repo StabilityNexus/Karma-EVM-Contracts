@@ -69,6 +69,17 @@ contract WeightLibTest is Test {
         assertEq(w, 250e18, "Equal reserves: weight = normBull = normBear = 250e18");
     }
 
+    function test_full_balanced_weight_preserves_exposure_magnitude() public pure {
+        uint256 price = 100_000;
+        uint256 reserve = 2_000e18;
+
+        uint256 aliceWeight =
+            WeightLib.computeWeight(1_000e18, 1_000e18, price, price, reserve, reserve);
+        uint256 bobWeight = WeightLib.computeWeight(100e18, 100e18, price, price, reserve, reserve);
+
+        assertEq(aliceWeight, bobWeight * 10);
+    }
+
     function test_full_one_sided_bull() public pure {
         uint256 price = 100000;
         uint256 reserve = 1000e18;
