@@ -9,6 +9,7 @@ cache = true
 # Optimization settings
 optimizer = true
 optimizer_runs = 200
+via_ir = true
 
 # Pin compiler + EVM for reproducibility
 solc_version = "0.8.23"
