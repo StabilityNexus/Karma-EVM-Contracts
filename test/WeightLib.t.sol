@@ -6,8 +6,6 @@ import { WeightLib } from "../src/lib/WeightLib.sol";
 
 // WeightLib Tests — Unit and fuzz tests for neutrality weight calculation
 contract WeightLibTest is Test {
-    uint256 constant SCALE = 1e18;
-
     // ──────────────────────────────────────────────────────────────
     //  Simple weight (equal reserves) — matches spec examples
     // ──────────────────────────────────────────────────────────────

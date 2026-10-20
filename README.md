@@ -22,7 +22,7 @@ Traditional prediction markets and DeFi protocols depend on external oracles (e.
 Each `Karma` oracle contract is constructed for one source prediction pool.
 - The oracle reads `bullCoin`, `bearCoin`, and `baseToken` reserves directly from the pool.
 - Submissions are weighted using the caller's Bull and Bear balances in that source pool.
-- The resulting price can be consumed by the source pool or another integration through Karma's oracle interfaces.
+- Other integrations can consume the price through Karma's oracle interfaces. Whether the source pool can also use it depends on that pool's oracle configuration.
 
 ### 2. Neutrality Weighting
 A participant holding only bull coins wants the oracle price to be higher. A participant holding only bear coins wants the price to be lower. Neither can be trusted.
@@ -87,16 +87,28 @@ If the same account resubmits a price, their prior contribution is decayed to th
 
 ```text
 src/
-├── Karma.sol               # Core oracle contract (IOracle, IKarmaOracle, Chainlink feeds)
-├── KarmaAdapterFactory.sol # Factory deploying Karma per PredictionPool config
+├── AccumulatorVault.sol     # dev role, receiver, and accumulated fee forwarding
+├── Coin.sol                 # Bull/Bear ERC-20 market tokens
+├── CoinFactory.sol          # Deploys the two coins for each pool
+├── PredictionPool.sol       # Pool reserves, fee settings, and oracle rebalance
+├── PredictionPoolFactory.sol# Creates pools and initializes their reserves
+├── ChainlinkAdapterFactory.sol
+├── Karma.sol                # Ownerless participant-weighted oracle
+├── KarmaAdapterFactory.sol
 ├── interfaces/
-│   ├── IKarmaOracle.sol    # Karma oracle interface
-│   └── IOracle.sol         # Source-pool oracle interface
+│   ├── IAdapterFactory.sol
+│   ├── IKarmaOracle.sol
+│   ├── IOracle.sol
+│   └── IAggregatorV3.sol
 └── lib/
-    ├── PriceAverager.sol   # Time-decayed weighted averaging library
-    ├── WadExp.sol          # Fixed-point exponential math (WAD)
-    └── WeightLib.sol       # Neutrality weight computation
+    ├── PriceAverager.sol
+    ├── WadExp.sol
+    └── WeightLib.sol
 ```
+
+Pool creation uses an oracle that already exists. To use Karma for a pool, create the pool with an initial oracle, seed it with liquidity, create a Karma oracle using that pool as its source, submit an initial price, then have the pool owner call `updateOracle(karmaAddress)`. Karma can also serve a different pool or integration.
+
+Each pool sets `devFee` at construction. `AccumulatorVault` sets `dev` and `devFeeReceiver` at deployment. Dev fees collect in the vault by token; `dev` calls `flushToken(token)` to send the balance to the current receiver. `dev` can change the receiver and transfer the dev role through proposal and acceptance.
 
 ---
 
@@ -116,12 +128,12 @@ forge test
 ```
 
 ### Deployment
-To deploy using `KarmaAdapterFactory`:
+See [dep.md](dep.md) for the full deployment sequence. The script deploys `AccumulatorVault`, `PredictionPoolFactory` (and its `CoinFactory`), `ChainlinkAdapterFactory`, and `KarmaAdapterFactory`:
 ```bash
-forge script script/DeployKarma.s.sol --rpc-url <RPC_URL> --broadcast
+forge script script/DeployKarma.s.sol:DeployKarma --rpc-url <RPC_URL> --broadcast
 ```
 
-`KarmaAdapterFactory` caches each `Karma` instance by `(pool, tau, minBalance)`. If an instance with the specified parameters already exists, the factory returns the existing address, enabling gas-efficient oracle sharing across protocols.
+`KarmaAdapterFactory` caches each Karma instance by `(pool, tau, minBalance)`. Pool factories do not register oracles; they only check that the supplied oracle implements `readValue()`.
 
 ---
 

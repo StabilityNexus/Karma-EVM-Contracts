@@ -2,12 +2,14 @@
 pragma solidity ^0.8.23;
 
 import { Script, console } from "forge-std/Script.sol";
+import { AccumulatorVault } from "../src/AccumulatorVault.sol";
+import { PredictionPoolFactory } from "../src/PredictionPoolFactory.sol";
+import { ChainlinkAdapterFactory } from "../src/ChainlinkAdapterFactory.sol";
 import { KarmaAdapterFactory } from "../src/KarmaAdapterFactory.sol";
 import { Karma } from "../src/Karma.sol";
 
 // DeployKarma — Foundry deployment script for Karma oracle system.
-// Deploys the KarmaAdapterFactory and optionally creates a Karma instance
-// for an existing PredictionPool.
+// Deploys the fee vault and protocol factories.
 //
 // Usage:
 //   forge script script/DeployKarma.s.sol:DeployKarma \
@@ -16,17 +18,30 @@ import { Karma } from "../src/Karma.sol";
 //     --verify
 //
 // Environment variables:
-//   PREDICTION_POOL  — PredictionPool address (optional, to create Karma instance)
+//   DEV_ADDRESS      — Initial address allowed to manage the fee receiver.
+//   DEV_FEE_RECEIVER — Initial destination for accumulated dev fees.
+//   PREDICTION_POOL  — Existing pool (optional, to create a Karma instance).
 //   TAU              — Decay time constant (optional, default 124651)
 //   MIN_BALANCE      — Minimum balance threshold (optional, default 100e18)
 //   DESCRIPTION      — Oracle description (optional)
 contract DeployKarma is Script {
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        address dev = vm.envAddress("DEV_ADDRESS");
+        address devFeeReceiver = vm.envAddress("DEV_FEE_RECEIVER");
 
         vm.startBroadcast(deployerKey);
 
-        // 1. Deploy KarmaAdapterFactory
+        AccumulatorVault vault = new AccumulatorVault(dev, devFeeReceiver);
+        console.log("AccumulatorVault deployed at:", address(vault));
+
+        PredictionPoolFactory poolFactory = new PredictionPoolFactory(address(vault));
+        console.log("PredictionPoolFactory deployed at:", address(poolFactory));
+        console.log("CoinFactory deployed at:", address(poolFactory.coinFactory()));
+
+        ChainlinkAdapterFactory chainlinkFactory = new ChainlinkAdapterFactory();
+        console.log("ChainlinkAdapterFactory deployed at:", address(chainlinkFactory));
+
         KarmaAdapterFactory factory = new KarmaAdapterFactory();
         console.log("KarmaAdapterFactory deployed at:", address(factory));
 

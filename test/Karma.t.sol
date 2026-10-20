@@ -315,11 +315,11 @@ contract KarmaTest is Test {
         vm.prank(alice);
         karma.submitPrice(100e18);
 
-        // Charlie (50/50 balanced) submits 500e18 50 times in the same block
+        // Charlie (50/50 balanced) submits 500e18 1000 times in the same block
         bullCoin.mint(charlie, 50e18);
         bearCoin.mint(charlie, 50e18);
         vm.startPrank(charlie);
-        for (uint256 i = 0; i < 50; i++) {
+        for (uint256 i = 0; i < 1000; i++) {
             karma.submitPrice(500e18);
         }
         vm.stopPrank();

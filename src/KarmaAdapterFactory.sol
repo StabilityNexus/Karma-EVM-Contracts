@@ -2,11 +2,7 @@
 pragma solidity ^0.8.23;
 
 import { Karma } from "./Karma.sol";
-
-// Generic adapter factory interface.
-interface IAdapterFactory {
-    function createAdapter(bytes memory params) external returns (address adapter);
-}
+import { IAdapterFactory } from "./interfaces/IAdapterFactory.sol";
 
 // Factory for deploying Karma oracle instances.
 //
