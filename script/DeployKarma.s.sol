@@ -3,6 +3,7 @@ pragma solidity ^0.8.23;
 
 import { Script, console } from "forge-std/Script.sol";
 import { AccumulatorVault } from "../src/AccumulatorVault.sol";
+import { PredictionPool } from "../src/PredictionPool.sol";
 import { PredictionPoolFactory } from "../src/PredictionPoolFactory.sol";
 import { ChainlinkAdapterFactory } from "../src/ChainlinkAdapterFactory.sol";
 import { KarmaAdapterFactory } from "../src/KarmaAdapterFactory.sol";
@@ -29,6 +30,13 @@ contract DeployKarma is Script {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         address dev = vm.envAddress("DEV_ADDRESS");
         address devFeeReceiver = vm.envAddress("DEV_FEE_RECEIVER");
+        address predictionPool = vm.envOr("PREDICTION_POOL", address(0));
+
+        // Validate before broadcasting anything. A pool address is meaningful only
+        // on the chain selected by RPC_URL, so require a live initialized pool there.
+        if (predictionPool != address(0)) {
+            _validatePredictionPool(predictionPool);
+        }
 
         vm.startBroadcast(deployerKey);
 
@@ -46,7 +54,6 @@ contract DeployKarma is Script {
         console.log("KarmaAdapterFactory deployed at:", address(factory));
 
         // 2. Optionally create a Karma instance
-        address predictionPool = vm.envOr("PREDICTION_POOL", address(0));
         if (predictionPool != address(0)) {
             uint256 _tau = vm.envOr("TAU", uint256(124651));
             uint256 _minBalance = vm.envOr("MIN_BALANCE", uint256(100e18));
@@ -60,5 +67,24 @@ contract DeployKarma is Script {
         }
 
         vm.stopBroadcast();
+    }
+
+    function _validatePredictionPool(address poolAddress) private view {
+        require(
+            poolAddress.code.length > 0,
+            "PREDICTION_POOL has no contract on RPC_URL's chain"
+        );
+
+        PredictionPool pool = PredictionPool(poolAddress);
+        require(
+            pool.initialized(),
+            "PREDICTION_POOL is not an initialized pool on RPC_URL's chain"
+        );
+        require(
+            address(pool.baseToken()).code.length > 0
+                && address(pool.bullCoin()).code.length > 0
+                && address(pool.bearCoin()).code.length > 0,
+            "PREDICTION_POOL is not a valid initialized pool on RPC_URL's chain"
+        );
     }
 }
