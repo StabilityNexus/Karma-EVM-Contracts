@@ -49,25 +49,23 @@ contract PredictionPoolFactory {
         uint256 devFee,
         uint256 initialDeposit
     ) external returns (address pool) {
-        return _createPool(
-            PredictionPoolConfig({
-                poolName: name,
-                baseToken: baseToken,
-                vaultCreator: msg.sender,
-                oracle: oracle,
-                accumulatorVault: accumulatorVault,
-                coinFactory: address(coinFactory),
-                bullName: bullName,
-                bullSymbol: bullSymbol,
-                bearName: bearName,
-                bearSymbol: bearSymbol,
-                mintFee: mintFee,
-                burnFee: burnFee,
-                creatorFee: creatorFee,
-                devFee: devFee,
-                initialDeposit: initialDeposit
-            })
-        );
+        PredictionPoolConfig memory config;
+        config.poolName = name;
+        config.baseToken = baseToken;
+        config.vaultCreator = msg.sender;
+        config.oracle = oracle;
+        config.accumulatorVault = accumulatorVault;
+        config.coinFactory = address(coinFactory);
+        config.bullName = bullName;
+        config.bullSymbol = bullSymbol;
+        config.bearName = bearName;
+        config.bearSymbol = bearSymbol;
+        config.mintFee = mintFee;
+        config.burnFee = burnFee;
+        config.creatorFee = creatorFee;
+        config.devFee = devFee;
+        config.initialDeposit = initialDeposit;
+        return _createPool(config);
     }
 
     function getAllPools() external view returns (address[] memory) {
