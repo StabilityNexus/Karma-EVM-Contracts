@@ -43,6 +43,7 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
     address public immutable bearCoin;
     uint256 public immutable tau;
     uint256 public immutable minTotalBalance;
+    uint256 public immutable minHoldBlocks;
 
     string private _description;
     PriceAverager.State private _averager;
@@ -61,8 +62,19 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
     error InsufficientBalance(uint256 totalBalance, uint256 minRequired);
     error ZeroWeight();
     error InvalidPool();
+    error PriceOutOfBounds();
+    error BalanceTooRecent();
 
-    constructor(address _pool, uint256 _tau, uint256 _minTotalBalance, string memory desc) {
+    /// @notice Tracks the last block at which each user's relevant coin balance changed.
+    mapping(address => uint256) public lastBalanceChangeBlock;
+
+    constructor(
+        address _pool,
+        uint256 _tau,
+        uint256 _minTotalBalance,
+        string memory desc,
+        uint256 _minHoldBlocks
+    ) {
         if (_pool == address(0)) revert InvalidPool();
 
         pool = IPredictionPoolReader(_pool);
@@ -72,6 +84,7 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
 
         tau = _tau > 0 ? _tau : DEFAULT_TAU;
         minTotalBalance = _minTotalBalance > 0 ? _minTotalBalance : DEFAULT_MIN_BALANCE;
+        minHoldBlocks = _minHoldBlocks > 0 ? _minHoldBlocks : 1;
         _description = desc;
     }
 
@@ -108,6 +121,12 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
 
     function submitPrice(uint256 price) external override nonReentrant {
         if (price == 0) revert ZeroPrice();
+
+        // Flash-loan protection: require balances to have been held for at least minHoldBlocks.
+        uint256 lastChange = lastBalanceChangeBlock[msg.sender];
+        if (lastChange > 0 && block.number - lastChange < minHoldBlocks) {
+            revert BalanceTooRecent();
+        }
 
         uint256 bullBalance = IERC20(bullCoin).balanceOf(msg.sender);
         uint256 bearBalance = IERC20(bearCoin).balanceOf(msg.sender);
@@ -198,6 +217,8 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
         uint256 price = readValue();
         uint256 count = submissionCount;
 
+        if (price > uint256(type(int256).max)) revert PriceOutOfBounds();
+
         roundId = uint80(count);
         answer = int256(price);
         startedAt = firstSubmissionTime;
@@ -211,5 +232,12 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
 
     function version() external pure returns (uint256) {
         return 1;
+    }
+
+    /// @notice Called by external systems (e.g., Coin contract hooks) to record
+    ///         that a user's balance has changed. Updates the hold-time tracker.
+    function recordBalanceChange(address user) external {
+        if (msg.sender != bullCoin && msg.sender != bearCoin) revert InvalidPool();
+        lastBalanceChangeBlock[user] = block.number;
     }
 }

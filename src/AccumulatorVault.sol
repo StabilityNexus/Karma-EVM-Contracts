@@ -59,6 +59,7 @@ contract AccumulatorVault is ReentrancyGuard {
     function flushToken(address token) external onlyDev nonReentrant returns (uint256 amount) {
         if (token == address(0)) revert ZeroAddress();
         amount = IERC20(token).balanceOf(address(this));
+        if (amount == 0) return 0;
         IERC20(token).safeTransfer(devFeeReceiver, amount);
         emit TokenFlushed(token, devFeeReceiver, amount);
     }

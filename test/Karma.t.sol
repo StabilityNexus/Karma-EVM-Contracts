@@ -40,7 +40,7 @@ contract KarmaTest is Test {
         bearCoin.mint(address(this), 10000e18);
 
         // Deploy Karma
-        karma = new Karma(address(pool), TAU, MIN_BALANCE, "Test Karma Oracle");
+        karma = new Karma(address(pool), TAU, MIN_BALANCE, "Test Karma Oracle", 0);
 
         // Give Alice balanced position
         bullCoin.mint(alice, 500e18);
@@ -67,11 +67,11 @@ contract KarmaTest is Test {
 
     function test_constructor_zero_pool_reverts() public {
         vm.expectRevert(Karma.InvalidPool.selector);
-        new Karma(address(0), TAU, MIN_BALANCE, "test");
+        new Karma(address(0), TAU, MIN_BALANCE, "test", 0);
     }
 
     function test_constructor_default_tau() public {
-        Karma k = new Karma(address(pool), 0, 0, "defaults");
+        Karma k = new Karma(address(pool), 0, 0, "defaults", 0);
         assertEq(k.tau(), 124651, "Should use DEFAULT_TAU");
         assertEq(k.minTotalBalance(), 100e18, "Should use DEFAULT_MIN_BALANCE");
     }

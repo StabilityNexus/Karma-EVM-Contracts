@@ -35,39 +35,11 @@ contract PredictionPoolFactory {
         coinFactory = new CoinFactory();
     }
 
-    function createPool(
-        string calldata name,
-        address baseToken,
-        address oracle,
-        string calldata bullName,
-        string calldata bullSymbol,
-        string calldata bearName,
-        string calldata bearSymbol,
-        uint256 mintFee,
-        uint256 burnFee,
-        uint256 creatorFee,
-        uint256 devFee,
-        uint256 initialDeposit
-    ) external returns (address pool) {
-        return _createPool(
-            PredictionPoolConfig({
-                poolName: name,
-                baseToken: baseToken,
-                vaultCreator: msg.sender,
-                oracle: oracle,
-                accumulatorVault: accumulatorVault,
-                coinFactory: address(coinFactory),
-                bullName: bullName,
-                bullSymbol: bullSymbol,
-                bearName: bearName,
-                bearSymbol: bearSymbol,
-                mintFee: mintFee,
-                burnFee: burnFee,
-                creatorFee: creatorFee,
-                devFee: devFee,
-                initialDeposit: initialDeposit
-            })
-        );
+    function createPool(PredictionPoolConfig memory config) external returns (address pool) {
+        config.vaultCreator = msg.sender;
+        config.accumulatorVault = accumulatorVault;
+        config.coinFactory = address(coinFactory);
+        return _createPool(config);
     }
 
     function getAllPools() external view returns (address[] memory) {
@@ -111,6 +83,8 @@ contract PredictionPoolFactory {
     function _checkOracle(address oracle) internal view {
         if (oracle == address(0) || oracle.code.length == 0) revert InvalidOracle();
         try IOracle(oracle).readValue() returns (uint256) { }
-        catch { revert InvalidOracle(); }
+        catch {
+            revert InvalidOracle();
+        }
     }
 }

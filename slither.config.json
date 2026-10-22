@@ -1,0 +1,4 @@
+{
+  "filter_paths": "lib|test|script|broadcast|cache|out",
+  "detectors_to_exclude": "unused-return,divide-before-multiply,uninitialized-local,incorrect-equality,reentrancy-no-eth"
+}

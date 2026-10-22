@@ -114,42 +114,37 @@ contract PredictionPool is Ownable2Step {
         uint256 initialPrice = IOracle(config.oracle).readValue();
         previousPrice = initialPrice == 0 ? 1e18 : initialPrice;
 
-        bullCoin = Coin(
-            ICoinFactory(config.coinFactory).createCoin(
-                abi.encode(
-                    CoinConfig({
-                        name: config.bullName,
-                        symbol: config.bullSymbol,
-                        asset: config.baseToken,
-                        vaultCreator: config.vaultCreator,
-                        predictionPool: address(this),
-                        accumulatorVault: config.accumulatorVault,
-                        mintFee: config.mintFee,
-                        burnFee: config.burnFee,
-                        creatorFee: config.creatorFee,
-                        devFee: config.devFee
-                    })
-                )
-            )
+        bytes memory bullData = abi.encode(
+            CoinConfig({
+                name: config.bullName,
+                symbol: config.bullSymbol,
+                asset: config.baseToken,
+                vaultCreator: config.vaultCreator,
+                predictionPool: address(this),
+                accumulatorVault: config.accumulatorVault,
+                mintFee: config.mintFee,
+                burnFee: config.burnFee,
+                creatorFee: config.creatorFee,
+                devFee: config.devFee
+            })
         );
-        bearCoin = Coin(
-            ICoinFactory(config.coinFactory).createCoin(
-                abi.encode(
-                    CoinConfig({
-                        name: config.bearName,
-                        symbol: config.bearSymbol,
-                        asset: config.baseToken,
-                        vaultCreator: config.vaultCreator,
-                        predictionPool: address(this),
-                        accumulatorVault: config.accumulatorVault,
-                        mintFee: config.mintFee,
-                        burnFee: config.burnFee,
-                        creatorFee: config.creatorFee,
-                        devFee: config.devFee
-                    })
-                )
-            )
+        bullCoin = Coin(ICoinFactory(config.coinFactory).createCoin(bullData));
+
+        bytes memory bearData = abi.encode(
+            CoinConfig({
+                name: config.bearName,
+                symbol: config.bearSymbol,
+                asset: config.baseToken,
+                vaultCreator: config.vaultCreator,
+                predictionPool: address(this),
+                accumulatorVault: config.accumulatorVault,
+                mintFee: config.mintFee,
+                burnFee: config.burnFee,
+                creatorFee: config.creatorFee,
+                devFee: config.devFee
+            })
         );
+        bearCoin = Coin(ICoinFactory(config.coinFactory).createCoin(bearData));
         bullCoin.setOtherCoin(address(bearCoin));
         bearCoin.setOtherCoin(address(bullCoin));
     }
@@ -212,7 +207,11 @@ contract PredictionPool is Ownable2Step {
         if (denominator == 0) return;
 
         uint256 bullTarget = Math.mulDiv(totalReserves, adjustedBull, denominator);
-        uint256 transferAmount;
+        uint256 transferAmount = 0;
+        uint256 percentChange = Math.mulDiv(
+            newPrice > oldPrice ? newPrice - oldPrice : oldPrice - newPrice, 10_000, oldPrice
+        );
+        previousPrice = newPrice;
         bool toBull = bullTarget > bullBefore;
         if (toBull) {
             transferAmount = bullTarget - bullBefore;
@@ -221,11 +220,6 @@ contract PredictionPool is Ownable2Step {
             transferAmount = bullBefore - bullTarget;
             bullCoin.transferReserveToOther(transferAmount);
         }
-
-        uint256 percentChange = Math.mulDiv(
-            newPrice > oldPrice ? newPrice - oldPrice : oldPrice - newPrice, 10_000, oldPrice
-        );
-        previousPrice = newPrice;
         emit Rebalanced(
             msg.sender,
             block.number,
@@ -277,7 +271,8 @@ contract PredictionPool is Ownable2Step {
     function _checkOracle(address oracle_) internal view {
         if (oracle_ == address(0) || oracle_.code.length == 0) revert InvalidOracle();
         try IOracle(oracle_).readValue() returns (uint256) { }
-        catch { revert InvalidOracle(); }
+        catch {
+            revert InvalidOracle();
+        }
     }
-
 }
