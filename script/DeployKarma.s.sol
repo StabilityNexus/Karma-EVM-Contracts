@@ -57,13 +57,15 @@ contract DeployKarma is Script {
         if (predictionPool != address(0)) {
             uint256 _tau = vm.envOr("TAU", uint256(124651));
             uint256 _minBalance = vm.envOr("MIN_BALANCE", uint256(100e18));
+            uint256 _minHoldBlocks = vm.envOr("MIN_HOLD_BLOCKS", uint256(1));
             string memory desc = vm.envOr("DESCRIPTION", string("Karma Oracle"));
 
-            address karma = factory.createKarma(predictionPool, _tau, _minBalance, desc);
+            address karma = factory.createKarma(predictionPool, _tau, _minBalance, desc, _minHoldBlocks);
             console.log("Karma oracle deployed at:", karma);
             console.log("  Pool:", predictionPool);
             console.log("  Tau:", _tau);
             console.log("  Min Balance:", _minBalance);
+            console.log("  Min Hold Blocks:", _minHoldBlocks);
         }
 
         vm.stopBroadcast();

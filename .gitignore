@@ -24,3 +24,6 @@ lcov.info
 Thumbs.db
 .idea/
 .vscode/
+
+# Unremediated security reviews (do not commit)
+unremediated-security-reviews/

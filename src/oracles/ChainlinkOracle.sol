@@ -7,22 +7,27 @@ import { IAggregatorV3 } from "../interfaces/IAggregatorV3.sol";
 contract ChainlinkOracle is IOracle {
     IAggregatorV3 public immutable priceFeed;
     uint8 public immutable feedDecimals;
+    uint256 public immutable maxStaleness;
 
     error InvalidPriceFeed();
     error InvalidPrice();
+    error StalePrice();
     error UnsupportedDecimals();
 
-    constructor(address feed) {
+    constructor(address feed, uint256 _maxStaleness) {
         if (feed == address(0) || feed.code.length == 0) revert InvalidPriceFeed();
         priceFeed = IAggregatorV3(feed);
         uint8 decimals_ = IAggregatorV3(feed).decimals();
         if (decimals_ > 36) revert UnsupportedDecimals();
         feedDecimals = decimals_;
+        maxStaleness = _maxStaleness > 0 ? _maxStaleness : 3600;
     }
 
     function readValue() public view override returns (uint256) {
-        (, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
+        (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
         if (answer <= 0 || updatedAt == 0 || answeredInRound == 0) revert InvalidPrice();
+        if (answeredInRound < roundId) revert StalePrice();
+        if (block.timestamp - updatedAt > maxStaleness) revert StalePrice();
 
         uint256 price = uint256(answer);
         if (feedDecimals <= 18) return price * 10 ** (18 - feedDecimals);
@@ -56,6 +61,8 @@ contract ChainlinkOracle is IOracle {
     {
         (roundId, answer, startedAt, updatedAt, answeredInRound) = priceFeed.latestRoundData();
         if (answer <= 0) revert InvalidPrice();
+        if (answeredInRound < roundId) revert StalePrice();
+        if (block.timestamp - updatedAt > maxStaleness) revert StalePrice();
         uint256 scaled = uint256(answer);
         if (feedDecimals <= 18) scaled *= 10 ** (18 - feedDecimals);
         else scaled /= 10 ** (feedDecimals - 18);

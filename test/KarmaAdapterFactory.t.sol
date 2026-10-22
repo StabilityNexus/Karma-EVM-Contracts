@@ -35,7 +35,7 @@ contract KarmaAdapterFactoryTest is Test {
     }
 
     function test_createKarma_deploys() public {
-        address adapter = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Test Karma");
+        address adapter = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Test Karma", 0);
 
         Karma karma = Karma(adapter);
         assertEq(address(karma.pool()), address(pool));
@@ -44,20 +44,20 @@ contract KarmaAdapterFactoryTest is Test {
     }
 
     function test_createKarma_caches_adapter() public {
-        address a1 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma 1");
-        address a2 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma 1 duplicate");
+        address a1 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma 1", 0);
+        address a2 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma 1 duplicate", 0);
         assertEq(a1, a2, "Same config must return cached adapter");
-        assertEq(factory.getKarma(address(pool), TAU, MIN_BALANCE), a1);
+        assertEq(factory.getKarma(address(pool), TAU, MIN_BALANCE, 0), a1);
     }
 
     function test_createKarma_different_config_different_adapter() public {
-        address a1 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma A");
-        address a2 = factory.createKarma(address(pool), TAU, 200e18, "Karma B");
+        address a1 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma A", 0);
+        address a2 = factory.createKarma(address(pool), TAU, 200e18, "Karma B", 0);
         assertTrue(a1 != a2, "Different minBalance should produce different adapter");
     }
 
     function test_createAdapter_via_bytes() public {
-        bytes memory params = abi.encode(address(pool), TAU, MIN_BALANCE, "Generic Adapter");
+        bytes memory params = abi.encode(address(pool), TAU, MIN_BALANCE, "Generic Adapter", uint256(0));
         vm.prank(user);
         address adapter = factory.createAdapter(params);
 
@@ -76,17 +76,17 @@ contract KarmaAdapterFactoryTest is Test {
     function test_createKarma_emits_event() public {
         vm.expectEmit(true, false, false, true);
         emit KarmaAdapterFactory.KarmaCreated(address(pool), address(0), TAU, MIN_BALANCE, "Test");
-        factory.createKarma(address(pool), TAU, MIN_BALANCE, "Test");
+        factory.createKarma(address(pool), TAU, MIN_BALANCE, "Test", 0);
     }
 
     function test_createKarma_zero_normalizes_to_default_and_caches() public {
-        address a1 = factory.createKarma(address(pool), 0, 0, "Karma 0");
-        address a2 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma explicit");
+        address a1 = factory.createKarma(address(pool), 0, 0, "Karma 0", 0);
+        address a2 = factory.createKarma(address(pool), TAU, MIN_BALANCE, "Karma explicit", 0);
         address a3 = factory.createKarma(address(pool), "Karma default");
 
         assertEq(a1, a2, "Zero params should normalize and share same adapter as explicit defaults");
         assertEq(a1, a3, "Zero params should normalize and share same adapter as default overload");
-        assertEq(factory.getKarma(address(pool), 0, 0), a1);
-        assertEq(factory.getKarma(address(pool), TAU, MIN_BALANCE), a1);
+        assertEq(factory.getKarma(address(pool), 0, 0, 0), a1);
+        assertEq(factory.getKarma(address(pool), TAU, MIN_BALANCE, 0), a1);
     }
 }

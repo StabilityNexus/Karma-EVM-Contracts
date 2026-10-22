@@ -30,7 +30,7 @@ contract SecurityTest is Test {
         bullCoin.mint(address(this), 10000e18);
         bearCoin.mint(address(this), 10000e18);
 
-        karma = new Karma(address(pool), TAU, MIN_BALANCE, "Security Test Oracle");
+        karma = new Karma(address(pool), TAU, MIN_BALANCE, "Security Test Oracle", 0);
     }
 
     // ──────────────────────────────────────────────────────────────

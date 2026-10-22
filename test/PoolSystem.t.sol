@@ -132,7 +132,7 @@ contract PoolSystemTest is Test {
         ChainlinkOracle oracle = ChainlinkOracle(adapter);
 
         assertEq(oracle.readValue(), 2_500e18);
-        assertEq(factory.getAdapter(address(feed)), adapter);
+        assertEq(factory.getAdapter(address(feed), 3600), adapter);
         assertEq(factory.createAdapter(address(feed)), adapter);
     }
 
@@ -187,7 +187,7 @@ contract PoolSystemTest is Test {
 
     function test_karmaCanBeCreatedForPoolAndSetAsOracle() public {
         KarmaAdapterFactory karmaFactory = new KarmaAdapterFactory();
-        address karmaAddress = karmaFactory.createKarma(address(pool), 0, 0, "Karma");
+        address karmaAddress = karmaFactory.createKarma(address(pool), 0, 0, "Karma", 0);
         Karma karma = Karma(karmaAddress);
 
         karma.submitPrice(150e18);

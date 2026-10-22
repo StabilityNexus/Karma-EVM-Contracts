@@ -173,7 +173,7 @@ contract Coin is ERC20, ReentrancyGuard {
         if (totalFees >= amountAsset) revert InvalidFeeConfiguration();
         uint256 amountAfterFees = amountAsset - totalFees;
         amountCoin = Math.mulDiv(
-            amountAfterFees, DENOMINATOR * _assetScale(), price, Math.Rounding.Ceil
+            amountAfterFees, DENOMINATOR * _assetScale(), price
         );
         if (amountCoin == 0) revert ZeroAmount();
         if (otherCoin == address(0)) revert MissingOtherCoin();
