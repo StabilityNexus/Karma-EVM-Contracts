@@ -34,10 +34,13 @@ contract KarmaAdapterFactory is IAdapterFactory {
     }
 
     // Explicit parameters.
-    function createKarma(address pool, uint256 tau, uint256 minBalance, string memory desc, uint256 minHoldBlocks)
-        external
-        returns (address adapter)
-    {
+    function createKarma(
+        address pool,
+        uint256 tau,
+        uint256 minBalance,
+        string memory desc,
+        uint256 minHoldBlocks
+    ) external returns (address adapter) {
         return _createKarma(pool, tau, minBalance, desc, minHoldBlocks);
     }
 
@@ -55,10 +58,13 @@ contract KarmaAdapterFactory is IAdapterFactory {
         return adapters[_key(pool, tau, minBalance, minHoldBlocks)];
     }
 
-    function _createKarma(address pool, uint256 tau, uint256 minBalance, string memory desc, uint256 minHoldBlocks)
-        internal
-        returns (address adapter)
-    {
+    function _createKarma(
+        address pool,
+        uint256 tau,
+        uint256 minBalance,
+        string memory desc,
+        uint256 minHoldBlocks
+    ) internal returns (address adapter) {
         uint256 effectiveTau = tau > 0 ? tau : DEFAULT_TAU;
         uint256 effectiveMinBalance = minBalance > 0 ? minBalance : DEFAULT_MIN_BALANCE;
         uint256 effectiveMinHoldBlocks = minHoldBlocks > 0 ? minHoldBlocks : DEFAULT_MIN_HOLD_BLOCKS;
@@ -68,17 +74,23 @@ contract KarmaAdapterFactory is IAdapterFactory {
             return adapters[key];
         }
 
-        Karma karma = new Karma(pool, effectiveTau, effectiveMinBalance, desc, effectiveMinHoldBlocks);
+        Karma karma =
+            new Karma(pool, effectiveTau, effectiveMinBalance, desc, effectiveMinHoldBlocks);
         adapter = address(karma);
         adapters[key] = adapter;
 
         emit KarmaCreated(pool, adapter, effectiveTau, effectiveMinBalance, desc);
     }
 
-    function _key(address pool, uint256 tau, uint256 minBalance, uint256 minHoldBlocks) internal pure returns (bytes32) {
+    function _key(address pool, uint256 tau, uint256 minBalance, uint256 minHoldBlocks)
+        internal
+        pure
+        returns (bytes32)
+    {
         uint256 effectiveTau = tau > 0 ? tau : DEFAULT_TAU;
         uint256 effectiveMinBalance = minBalance > 0 ? minBalance : DEFAULT_MIN_BALANCE;
         uint256 effectiveMinHoldBlocks = minHoldBlocks > 0 ? minHoldBlocks : DEFAULT_MIN_HOLD_BLOCKS;
-        return keccak256(abi.encode(pool, effectiveTau, effectiveMinBalance, effectiveMinHoldBlocks));
+        return
+            keccak256(abi.encode(pool, effectiveTau, effectiveMinBalance, effectiveMinHoldBlocks));
     }
 }

@@ -111,6 +111,8 @@ contract PredictionPoolFactory {
     function _checkOracle(address oracle) internal view {
         if (oracle == address(0) || oracle.code.length == 0) revert InvalidOracle();
         try IOracle(oracle).readValue() returns (uint256) { }
-        catch { revert InvalidOracle(); }
+        catch {
+            revert InvalidOracle();
+        }
     }
 }

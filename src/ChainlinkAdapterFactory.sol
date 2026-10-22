@@ -23,7 +23,10 @@ contract ChainlinkAdapterFactory is IAdapterFactory {
         return _createAdapter(priceFeed, DEFAULT_MAX_STALENESS);
     }
 
-    function createAdapter(address priceFeed, uint256 maxStaleness) external returns (address adapter) {
+    function createAdapter(address priceFeed, uint256 maxStaleness)
+        external
+        returns (address adapter)
+    {
         return _createAdapter(priceFeed, maxStaleness);
     }
 
@@ -31,7 +34,10 @@ contract ChainlinkAdapterFactory is IAdapterFactory {
         return adapters[_key(priceFeed, maxStaleness)];
     }
 
-    function _createAdapter(address priceFeed, uint256 maxStaleness) internal returns (address adapter) {
+    function _createAdapter(address priceFeed, uint256 maxStaleness)
+        internal
+        returns (address adapter)
+    {
         uint256 effectiveStaleness = maxStaleness > 0 ? maxStaleness : DEFAULT_MAX_STALENESS;
         bytes32 key = _key(priceFeed, effectiveStaleness);
         adapter = adapters[key];

@@ -60,7 +60,8 @@ contract DeployKarma is Script {
             uint256 _minHoldBlocks = vm.envOr("MIN_HOLD_BLOCKS", uint256(1));
             string memory desc = vm.envOr("DESCRIPTION", string("Karma Oracle"));
 
-            address karma = factory.createKarma(predictionPool, _tau, _minBalance, desc, _minHoldBlocks);
+            address karma =
+                factory.createKarma(predictionPool, _tau, _minBalance, desc, _minHoldBlocks);
             console.log("Karma oracle deployed at:", karma);
             console.log("  Pool:", predictionPool);
             console.log("  Tau:", _tau);
@@ -72,19 +73,12 @@ contract DeployKarma is Script {
     }
 
     function _validatePredictionPool(address poolAddress) private view {
-        require(
-            poolAddress.code.length > 0,
-            "PREDICTION_POOL has no contract on RPC_URL's chain"
-        );
+        require(poolAddress.code.length > 0, "PREDICTION_POOL has no contract on RPC_URL's chain");
 
         PredictionPool pool = PredictionPool(poolAddress);
+        require(pool.initialized(), "PREDICTION_POOL is not an initialized pool on RPC_URL's chain");
         require(
-            pool.initialized(),
-            "PREDICTION_POOL is not an initialized pool on RPC_URL's chain"
-        );
-        require(
-            address(pool.baseToken()).code.length > 0
-                && address(pool.bullCoin()).code.length > 0
+            address(pool.baseToken()).code.length > 0 && address(pool.bullCoin()).code.length > 0
                 && address(pool.bearCoin()).code.length > 0,
             "PREDICTION_POOL is not a valid initialized pool on RPC_URL's chain"
         );

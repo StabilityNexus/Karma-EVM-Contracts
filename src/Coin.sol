@@ -168,13 +168,12 @@ contract Coin is ERC20, ReentrancyGuard {
         IPoolRebalance(predictionPool).rebalance();
 
         uint256 price = priceBuy();
-        (uint256 vaultAmount, uint256 devAmount, uint256 creatorAmount) = _fees(amountAsset, mintFee);
+        (uint256 vaultAmount, uint256 devAmount, uint256 creatorAmount) =
+            _fees(amountAsset, mintFee);
         uint256 totalFees = vaultAmount + devAmount + creatorAmount;
         if (totalFees >= amountAsset) revert InvalidFeeConfiguration();
         uint256 amountAfterFees = amountAsset - totalFees;
-        amountCoin = Math.mulDiv(
-            amountAfterFees, DENOMINATOR * _assetScale(), price
-        );
+        amountCoin = Math.mulDiv(amountAfterFees, DENOMINATOR * _assetScale(), price);
         if (amountCoin == 0) revert ZeroAmount();
         if (otherCoin == address(0)) revert MissingOtherCoin();
 

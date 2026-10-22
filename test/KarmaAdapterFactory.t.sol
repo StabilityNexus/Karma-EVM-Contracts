@@ -57,7 +57,8 @@ contract KarmaAdapterFactoryTest is Test {
     }
 
     function test_createAdapter_via_bytes() public {
-        bytes memory params = abi.encode(address(pool), TAU, MIN_BALANCE, "Generic Adapter", uint256(0));
+        bytes memory params =
+            abi.encode(address(pool), TAU, MIN_BALANCE, "Generic Adapter", uint256(0));
         vm.prank(user);
         address adapter = factory.createAdapter(params);
 

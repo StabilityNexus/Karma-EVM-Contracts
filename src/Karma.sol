@@ -68,7 +68,13 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
     /// @notice Tracks the last block at which each user's relevant coin balance changed.
     mapping(address => uint256) public lastBalanceChangeBlock;
 
-    constructor(address _pool, uint256 _tau, uint256 _minTotalBalance, string memory desc, uint256 _minHoldBlocks) {
+    constructor(
+        address _pool,
+        uint256 _tau,
+        uint256 _minTotalBalance,
+        string memory desc,
+        uint256 _minHoldBlocks
+    ) {
         if (_pool == address(0)) revert InvalidPool();
 
         pool = IPredictionPoolReader(_pool);

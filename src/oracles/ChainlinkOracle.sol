@@ -24,7 +24,8 @@ contract ChainlinkOracle is IOracle {
     }
 
     function readValue() public view override returns (uint256) {
-        (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
+        (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) =
+            priceFeed.latestRoundData();
         if (answer <= 0 || updatedAt == 0 || answeredInRound == 0) revert InvalidPrice();
         if (answeredInRound < roundId) revert StalePrice();
         if (block.timestamp - updatedAt > maxStaleness) revert StalePrice();
@@ -34,7 +35,12 @@ contract ChainlinkOracle is IOracle {
         return price / 10 ** (feedDecimals - 18);
     }
 
-    function readValueInterval() external view override returns (uint256 minValue, uint256 maxValue) {
+    function readValueInterval()
+        external
+        view
+        override
+        returns (uint256 minValue, uint256 maxValue)
+    {
         uint256 price = readValue();
         return (price, price);
     }
