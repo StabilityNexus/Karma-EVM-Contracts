@@ -69,10 +69,11 @@ contract ChainlinkOracle is IOracle {
         if (answer <= 0) revert InvalidPrice();
         if (answeredInRound < roundId) revert StalePrice();
         if (block.timestamp - updatedAt > maxStaleness) revert StalePrice();
-        uint256 scaled = uint256(answer);
-        if (feedDecimals <= 18) scaled *= 10 ** (18 - feedDecimals);
-        else scaled /= 10 ** (feedDecimals - 18);
-        answer = int256(scaled);
+        if (feedDecimals <= 18) {
+            answer = int256(uint256(answer) * 10 ** (18 - feedDecimals));
+        } else {
+            answer = int256(uint256(answer) / 10 ** (feedDecimals - 18));
+        }
     }
 
     function decimals() external pure returns (uint8) {

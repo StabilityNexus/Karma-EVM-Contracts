@@ -207,7 +207,7 @@ contract PredictionPool is Ownable2Step {
         if (denominator == 0) return;
 
         uint256 bullTarget = Math.mulDiv(totalReserves, adjustedBull, denominator);
-        uint256 transferAmount;
+        uint256 transferAmount = 0;
         bool toBull = bullTarget > bullBefore;
         if (toBull) {
             transferAmount = bullTarget - bullBefore;
