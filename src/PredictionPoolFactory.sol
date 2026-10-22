@@ -35,36 +35,10 @@ contract PredictionPoolFactory {
         coinFactory = new CoinFactory();
     }
 
-    function createPool(
-        string calldata name,
-        address baseToken,
-        address oracle,
-        string calldata bullName,
-        string calldata bullSymbol,
-        string calldata bearName,
-        string calldata bearSymbol,
-        uint256 mintFee,
-        uint256 burnFee,
-        uint256 creatorFee,
-        uint256 devFee,
-        uint256 initialDeposit
-    ) external returns (address pool) {
-        PredictionPoolConfig memory config;
-        config.poolName = name;
-        config.baseToken = baseToken;
+    function createPool(PredictionPoolConfig memory config) external returns (address pool) {
         config.vaultCreator = msg.sender;
-        config.oracle = oracle;
         config.accumulatorVault = accumulatorVault;
         config.coinFactory = address(coinFactory);
-        config.bullName = bullName;
-        config.bullSymbol = bullSymbol;
-        config.bearName = bearName;
-        config.bearSymbol = bearSymbol;
-        config.mintFee = mintFee;
-        config.burnFee = burnFee;
-        config.creatorFee = creatorFee;
-        config.devFee = devFee;
-        config.initialDeposit = initialDeposit;
         return _createPool(config);
     }
 

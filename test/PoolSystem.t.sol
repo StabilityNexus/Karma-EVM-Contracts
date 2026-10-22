@@ -8,7 +8,7 @@ import { ChainlinkAdapterFactory } from "../src/ChainlinkAdapterFactory.sol";
 import { Coin } from "../src/Coin.sol";
 import { Karma } from "../src/Karma.sol";
 import { KarmaAdapterFactory } from "../src/KarmaAdapterFactory.sol";
-import { PredictionPool } from "../src/PredictionPool.sol";
+import { PredictionPool, PredictionPoolConfig } from "../src/PredictionPool.sol";
 import { PredictionPoolFactory } from "../src/PredictionPoolFactory.sol";
 import { ChainlinkOracle } from "../src/oracles/ChainlinkOracle.sol";
 import { IAggregatorV3 } from "../src/interfaces/IAggregatorV3.sol";
@@ -89,18 +89,23 @@ contract MockFeed is IAggregatorV3 {
             baseToken.approve(address(poolFactory), type(uint256).max);
             pool = PredictionPool(
                 poolFactory.createPool(
-                    "Karma market",
-                    address(baseToken),
-                    address(initialOracle),
-                    "Bull",
-                    "BULL",
-                    "Bear",
-                    "BEAR",
-                    MINT_FEE,
-                    BURN_FEE,
-                    CREATOR_FEE,
-                    DEV_FEE,
-                    INITIAL_DEPOSIT
+                    PredictionPoolConfig({
+                        poolName: "Karma market",
+                        baseToken: address(baseToken),
+                        vaultCreator: address(this),
+                        oracle: address(initialOracle),
+                        accumulatorVault: address(vault),
+                        coinFactory: address(poolFactory.coinFactory()),
+                        bullName: "Bull",
+                        bullSymbol: "BULL",
+                        bearName: "Bear",
+                        bearSymbol: "BEAR",
+                        mintFee: MINT_FEE,
+                        burnFee: BURN_FEE,
+                        creatorFee: CREATOR_FEE,
+                        devFee: DEV_FEE,
+                        initialDeposit: INITIAL_DEPOSIT
+                    })
                 )
             );
             bull = pool.bullCoin();
