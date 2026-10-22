@@ -208,6 +208,10 @@ contract PredictionPool is Ownable2Step {
 
         uint256 bullTarget = Math.mulDiv(totalReserves, adjustedBull, denominator);
         uint256 transferAmount = 0;
+        uint256 percentChange = Math.mulDiv(
+            newPrice > oldPrice ? newPrice - oldPrice : oldPrice - newPrice, 10_000, oldPrice
+        );
+        previousPrice = newPrice;
         bool toBull = bullTarget > bullBefore;
         if (toBull) {
             transferAmount = bullTarget - bullBefore;
@@ -216,11 +220,6 @@ contract PredictionPool is Ownable2Step {
             transferAmount = bullBefore - bullTarget;
             bullCoin.transferReserveToOther(transferAmount);
         }
-
-        uint256 percentChange = Math.mulDiv(
-            newPrice > oldPrice ? newPrice - oldPrice : oldPrice - newPrice, 10_000, oldPrice
-        );
-        previousPrice = newPrice;
         emit Rebalanced(
             msg.sender,
             block.number,
