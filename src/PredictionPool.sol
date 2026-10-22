@@ -114,44 +114,37 @@ contract PredictionPool is Ownable2Step {
         uint256 initialPrice = IOracle(config.oracle).readValue();
         previousPrice = initialPrice == 0 ? 1e18 : initialPrice;
 
-        bullCoin = Coin(
-            ICoinFactory(config.coinFactory)
-                .createCoin(
-                    abi.encode(
-                        CoinConfig({
-                        name: config.bullName,
-                        symbol: config.bullSymbol,
-                        asset: config.baseToken,
-                        vaultCreator: config.vaultCreator,
-                        predictionPool: address(this),
-                        accumulatorVault: config.accumulatorVault,
-                        mintFee: config.mintFee,
-                        burnFee: config.burnFee,
-                        creatorFee: config.creatorFee,
-                        devFee: config.devFee
-                    })
-                    )
-                )
+        bytes memory bullData = abi.encode(
+            CoinConfig({
+                name: config.bullName,
+                symbol: config.bullSymbol,
+                asset: config.baseToken,
+                vaultCreator: config.vaultCreator,
+                predictionPool: address(this),
+                accumulatorVault: config.accumulatorVault,
+                mintFee: config.mintFee,
+                burnFee: config.burnFee,
+                creatorFee: config.creatorFee,
+                devFee: config.devFee
+            })
         );
-        bearCoin = Coin(
-            ICoinFactory(config.coinFactory)
-                .createCoin(
-                    abi.encode(
-                        CoinConfig({
-                        name: config.bearName,
-                        symbol: config.bearSymbol,
-                        asset: config.baseToken,
-                        vaultCreator: config.vaultCreator,
-                        predictionPool: address(this),
-                        accumulatorVault: config.accumulatorVault,
-                        mintFee: config.mintFee,
-                        burnFee: config.burnFee,
-                        creatorFee: config.creatorFee,
-                        devFee: config.devFee
-                    })
-                    )
-                )
+        bullCoin = Coin(ICoinFactory(config.coinFactory).createCoin(bullData));
+
+        bytes memory bearData = abi.encode(
+            CoinConfig({
+                name: config.bearName,
+                symbol: config.bearSymbol,
+                asset: config.baseToken,
+                vaultCreator: config.vaultCreator,
+                predictionPool: address(this),
+                accumulatorVault: config.accumulatorVault,
+                mintFee: config.mintFee,
+                burnFee: config.burnFee,
+                creatorFee: config.creatorFee,
+                devFee: config.devFee
+            })
         );
+        bearCoin = Coin(ICoinFactory(config.coinFactory).createCoin(bearData));
         bullCoin.setOtherCoin(address(bearCoin));
         bearCoin.setOtherCoin(address(bullCoin));
     }
