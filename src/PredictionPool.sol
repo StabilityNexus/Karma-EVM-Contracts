@@ -60,6 +60,7 @@ contract PredictionPool is Ownable2Step {
     error OnlyFactory();
     error PoolAlreadyInitialized();
     error InitialDepositMismatch();
+    error InitialDepositTooSmall();
 
     event OracleUpdated(address indexed previousOracle, address indexed newOracle);
     event PoolInitialized(
@@ -162,16 +163,17 @@ contract PredictionPool is Ownable2Step {
 
         uint256 bullDeposit = initialDeposit_ / 2;
         uint256 bearDeposit = initialDeposit_ - bullDeposit;
-        if (initialDeposit_ > 0) {
-            baseToken.safeTransferFrom(msg.sender, address(this), initialDeposit_);
-            baseToken.safeTransfer(address(bullCoin), bullDeposit);
-            baseToken.safeTransfer(address(bearCoin), bearDeposit);
+        // An empty coin sells at par, so its first buyer would take its whole reserve.
+        if (bullDeposit == 0) revert InitialDepositTooSmall();
 
-            uint8 decimals_ = IERC20Metadata(address(baseToken)).decimals();
-            uint256 scale = 10 ** (18 - decimals_);
-            bullCoin.mintInitialSupply(bullDeposit * scale);
-            bearCoin.mintInitialSupply(bearDeposit * scale);
-        }
+        baseToken.safeTransferFrom(msg.sender, address(this), initialDeposit_);
+        baseToken.safeTransfer(address(bullCoin), bullDeposit);
+        baseToken.safeTransfer(address(bearCoin), bearDeposit);
+
+        uint8 decimals_ = IERC20Metadata(address(baseToken)).decimals();
+        uint256 scale = 10 ** (18 - decimals_);
+        bullCoin.mintInitialSupply(bullDeposit * scale);
+        bearCoin.mintInitialSupply(bearDeposit * scale);
 
         emit PoolInitialized(
             vaultCreator, initialDeposit_, bullDeposit, bearDeposit, block.timestamp
