@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AEL
 pragma solidity ^0.8.23;
 
-import { Test } from "forge-std/Test.sol";
+import { Test, Vm } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { AccumulatorVault } from "../src/AccumulatorVault.sol";
 import { ChainlinkAdapterFactory } from "../src/ChainlinkAdapterFactory.sol";
@@ -203,5 +203,101 @@ contract PoolSystemTest is Test {
 
         vm.expectRevert(Coin.OnlyPredictionPool.selector);
         bull.transferReserveToOther(1);
+    }
+
+    function test_buyEmitsAccurateReservesAndSupply() public {
+        initialOracle.setValue(1.1e18);
+
+        uint256 amountIn = 100e18;
+        baseToken.mint(trader, amountIn);
+
+        vm.startPrank(trader);
+        baseToken.approve(address(bull), amountIn);
+
+        vm.recordLogs();
+        uint256 coinOut = bull.buy(trader, amountIn);
+        vm.stopPrank();
+
+        uint256 bullReserveAfter = baseToken.balanceOf(address(bull));
+        uint256 bullSupplyAfter = bull.totalSupply();
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 mintSig = keccak256("Mint(address,address,uint256,uint256,uint256,uint256,uint256,uint256)");
+        bool foundMint = false;
+
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].emitter == address(bull) && entries[i].topics[0] == mintSig) {
+                foundMint = true;
+                address from = address(uint160(uint256(entries[i].topics[1])));
+                address to = address(uint160(uint256(entries[i].topics[2])));
+                (
+                    uint256 emittedAmountAsset,
+                    uint256 emittedAmountCoin,
+                    uint256 emittedPrice,
+                    uint256 emittedSupplyAfter,
+                    uint256 emittedReserveAfter,
+                    uint256 emittedFeePaid
+                ) = abi.decode(entries[i].data, (uint256, uint256, uint256, uint256, uint256, uint256));
+
+                assertEq(from, trader);
+                assertEq(to, trader);
+                assertEq(emittedAmountAsset, amountIn);
+                assertEq(emittedAmountCoin, coinOut);
+                assertGt(emittedPrice, 0);
+                assertEq(emittedSupplyAfter, bullSupplyAfter);
+                assertEq(emittedReserveAfter, bullReserveAfter);
+                assertGt(emittedFeePaid, 0);
+                break;
+            }
+        }
+        assertTrue(foundMint, "Mint event not emitted");
+    }
+
+    function test_sellEmitsAccurateReservesAndSupply() public {
+        uint256 amountIn = 100e18;
+        baseToken.mint(trader, amountIn);
+
+        vm.startPrank(trader);
+        baseToken.approve(address(bull), amountIn);
+        uint256 coinOut = bull.buy(trader, amountIn);
+
+        initialOracle.setValue(0.9e18);
+
+        uint256 burnAmount = coinOut / 2;
+        vm.recordLogs();
+        uint256 assetOut = bull.sell(burnAmount);
+        vm.stopPrank();
+
+        uint256 bullReserveAfterSell = baseToken.balanceOf(address(bull));
+        uint256 bullSupplyAfterSell = bull.totalSupply();
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 burnSig = keccak256("Burn(address,uint256,uint256,uint256,uint256,uint256,uint256)");
+        bool foundBurn = false;
+
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].emitter == address(bull) && entries[i].topics[0] == burnSig) {
+                foundBurn = true;
+                address from = address(uint160(uint256(entries[i].topics[1])));
+                (
+                    uint256 emittedAmountAsset,
+                    uint256 emittedAmountCoin,
+                    uint256 emittedPrice,
+                    uint256 emittedSupplyAfter,
+                    uint256 emittedReserveAfter,
+                    uint256 emittedFeePaid
+                ) = abi.decode(entries[i].data, (uint256, uint256, uint256, uint256, uint256, uint256));
+
+                assertEq(from, trader);
+                assertEq(emittedAmountAsset, assetOut);
+                assertEq(emittedAmountCoin, burnAmount);
+                assertGt(emittedPrice, 0);
+                assertEq(emittedSupplyAfter, bullSupplyAfterSell);
+                assertEq(emittedReserveAfter, bullReserveAfterSell);
+                assertGt(emittedFeePaid, 0);
+                break;
+            }
+        }
+        assertTrue(foundBurn, "Burn event not emitted");
     }
 }

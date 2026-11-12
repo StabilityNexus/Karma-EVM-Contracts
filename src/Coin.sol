@@ -167,13 +167,19 @@ contract Coin is ERC20, ReentrancyGuard {
         if (amountAsset == 0) revert ZeroAmount();
         IPoolRebalance(predictionPool).rebalance();
 
-        uint256 price = priceBuy();
+        uint256 reserveBefore = asset.balanceOf(address(this));
+        uint256 currentSupply = totalSupply();
+        uint256 scale = _assetScale();
+        uint256 price = currentSupply == 0
+            ? DENOMINATOR
+            : Math.mulDiv(reserveBefore, DENOMINATOR * scale, currentSupply, Math.Rounding.Ceil);
+
         (uint256 vaultAmount, uint256 devAmount, uint256 creatorAmount) = _fees(amountAsset, mintFee);
         uint256 totalFees = vaultAmount + devAmount + creatorAmount;
         if (totalFees >= amountAsset) revert InvalidFeeConfiguration();
         uint256 amountAfterFees = amountAsset - totalFees;
         amountCoin = Math.mulDiv(
-            amountAfterFees, DENOMINATOR * _assetScale(), price, Math.Rounding.Ceil
+            amountAfterFees, DENOMINATOR * scale, price, Math.Rounding.Ceil
         );
         if (amountCoin == 0) revert ZeroAmount();
         if (otherCoin == address(0)) revert MissingOtherCoin();
@@ -191,7 +197,7 @@ contract Coin is ERC20, ReentrancyGuard {
             amountAsset,
             amountCoin,
             price,
-            totalSupply(),
+            currentSupply + amountCoin,
             asset.balanceOf(address(this)),
             totalFees
         );
@@ -211,12 +217,15 @@ contract Coin is ERC20, ReentrancyGuard {
 
     function sell(uint256 amountCoin) external nonReentrant returns (uint256 amountAsset) {
         if (amountCoin == 0) revert ZeroAmount();
-        if (amountCoin >= totalSupply()) revert SupplyWouldBecomeZero();
         IPoolRebalance(predictionPool).rebalance();
 
-        uint256 price = priceSell();
-        uint256 amountBeforeFeesWad = Math.mulDiv(amountCoin, price, DENOMINATOR);
+        uint256 currentSupply = totalSupply();
+        if (amountCoin >= currentSupply) revert SupplyWouldBecomeZero();
+
+        uint256 reserveBefore = asset.balanceOf(address(this));
         uint256 scale = _assetScale();
+        uint256 price = Math.mulDiv(reserveBefore, DENOMINATOR * scale, currentSupply);
+        uint256 amountBeforeFeesWad = Math.mulDiv(amountCoin, price, DENOMINATOR);
         uint256 amountBeforeFees = amountBeforeFeesWad / scale;
         if (amountBeforeFees == 0) revert ZeroAmount();
 
@@ -226,7 +235,7 @@ contract Coin is ERC20, ReentrancyGuard {
         if (totalFees >= amountBeforeFees) revert InvalidFeeConfiguration();
         amountAsset = amountBeforeFees - totalFees;
         if (otherCoin == address(0)) revert MissingOtherCoin();
-        if (amountBeforeFees > asset.balanceOf(address(this))) revert InsufficientReserve();
+        if (amountBeforeFees > reserveBefore) revert InsufficientReserve();
 
         _burn(msg.sender, amountCoin);
         _sendFees(vaultAmount, devAmount, creatorAmount);
@@ -240,8 +249,8 @@ contract Coin is ERC20, ReentrancyGuard {
             amountAsset,
             amountCoin,
             price,
-            totalSupply(),
-            asset.balanceOf(address(this)),
+            currentSupply - amountCoin,
+            reserveBefore - amountBeforeFees,
             totalFees
         );
         emit FeeDistribution(
