@@ -53,7 +53,7 @@ contract PoolInitialDepositTest is Test {
         assertEq(pool.bearCoin().totalSupply(), 1);
     }
 
-    function test_buyerOfFundedSideGetsOnlyHisShare() public {
+    function test_buyerOfFundedSideGetsOnlyOwnShare() public {
         PredictionPool pool = _createPool(1_000e18);
         Coin bear = _moveValueIntoBear(pool);
 

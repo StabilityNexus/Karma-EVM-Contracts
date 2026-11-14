@@ -163,7 +163,7 @@ contract PredictionPool is Ownable2Step {
 
         uint256 bullDeposit = initialDeposit_ / 2;
         uint256 bearDeposit = initialDeposit_ - bullDeposit;
-        // An empty coin sells at par, so its first buyer would take its whole reserve.
+        // An empty coin is priced at par, so its first buyer would take its whole reserve.
         if (bullDeposit == 0) revert InitialDepositTooSmall();
 
         baseToken.safeTransferFrom(msg.sender, address(this), initialDeposit_);
