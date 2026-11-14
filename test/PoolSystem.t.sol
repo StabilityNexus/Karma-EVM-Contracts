@@ -13,7 +13,7 @@ import { PredictionPoolFactory } from "../src/PredictionPoolFactory.sol";
 import { ChainlinkOracle } from "../src/oracles/ChainlinkOracle.sol";
 import { IAggregatorV3 } from "../src/interfaces/IAggregatorV3.sol";
 import { IOracle } from "../src/interfaces/IOracle.sol";
-import { MockBaseToken } from "./mocks/Mocks.sol";
+import { MockBaseToken, MockFeeOnTransferToken } from "./mocks/Mocks.sol";
 
 contract MockFeed is IAggregatorV3 {
     uint8 public immutable override decimals;
@@ -203,5 +203,168 @@ contract PoolSystemTest is Test {
 
         vm.expectRevert(Coin.OnlyPredictionPool.selector);
         bull.transferReserveToOther(1);
+    }
+
+    event Rebalanced(
+        address indexed caller,
+        uint256 indexed blockNumber,
+        uint256 oldPrice,
+        uint256 newPrice,
+        uint256 priceChangePercent,
+        uint256 bullReservesBefore,
+        uint256 bearReservesBefore,
+        uint256 bullReservesAfter,
+        uint256 bearReservesAfter,
+        uint256 transferAmount,
+        bool wasTransferToBull,
+        uint256 timestamp
+    );
+
+    function test_rebalanceEmitsAccurateReserves() public {
+        initialOracle.setValue(2e18);
+        uint256 bullBefore = baseToken.balanceOf(address(bull));
+        uint256 bearBefore = baseToken.balanceOf(address(bear));
+
+        uint256 expectedTransfer = 300e18;
+        uint256 expectedBullAfter = bullBefore + expectedTransfer;
+        uint256 expectedBearAfter = bearBefore - expectedTransfer;
+
+        vm.expectEmit(true, true, false, true, address(pool));
+        emit Rebalanced(
+            address(this),
+            block.number,
+            1e18,
+            2e18,
+            10_000,
+            bullBefore,
+            bearBefore,
+            expectedBullAfter,
+            expectedBearAfter,
+            expectedTransfer,
+            true,
+            block.timestamp
+        );
+
+        pool.rebalance();
+
+        uint256 bullAfter = baseToken.balanceOf(address(bull));
+        uint256 bearAfter = baseToken.balanceOf(address(bear));
+        assertEq(bullAfter, expectedBullAfter);
+        assertEq(bearAfter, expectedBearAfter);
+        assertEq(bullAfter, 800e18);
+        assertEq(bearAfter, 200e18);
+    }
+
+    function test_rebalanceEmitsAccurateReserves_transferToBear() public {
+        initialOracle.setValue(5e17);
+        uint256 bullBefore = baseToken.balanceOf(address(bull));
+        uint256 bearBefore = baseToken.balanceOf(address(bear));
+
+        uint256 expectedTransfer = 300e18;
+        uint256 expectedBullAfter = bullBefore - expectedTransfer;
+        uint256 expectedBearAfter = bearBefore + expectedTransfer;
+
+        vm.expectEmit(true, true, false, true, address(pool));
+        emit Rebalanced(
+            address(this),
+            block.number,
+            1e18,
+            5e17,
+            5_000,
+            bullBefore,
+            bearBefore,
+            expectedBullAfter,
+            expectedBearAfter,
+            expectedTransfer,
+            false,
+            block.timestamp
+        );
+
+        pool.rebalance();
+
+        uint256 bullAfter = baseToken.balanceOf(address(bull));
+        uint256 bearAfter = baseToken.balanceOf(address(bear));
+        assertEq(bullAfter, expectedBullAfter);
+        assertEq(bearAfter, expectedBearAfter);
+        assertEq(bullAfter, 200e18);
+        assertEq(bearAfter, 800e18);
+    }
+
+    function test_rebalance_zeroTransferWhenPriceUnchanged() public {
+        uint256 bullBefore = baseToken.balanceOf(address(bull));
+        uint256 bearBefore = baseToken.balanceOf(address(bear));
+
+        pool.rebalance();
+
+        assertEq(baseToken.balanceOf(address(bull)), bullBefore);
+        assertEq(baseToken.balanceOf(address(bear)), bearBefore);
+        assertEq(pool.previousPrice(), 1e18);
+    }
+
+    function _createPoolWithToken(address token) private {
+        poolFactory.createPool(
+            "FOT pool",
+            token,
+            address(initialOracle),
+            "Bull",
+            "BULL",
+            "Bear",
+            "BEAR",
+            MINT_FEE,
+            BURN_FEE,
+            CREATOR_FEE,
+            DEV_FEE,
+            INITIAL_DEPOSIT
+        );
+    }
+
+    function test_createPool_revertsOnFeeOnTransferToken() public {
+        MockFeeOnTransferToken fotToken = new MockFeeOnTransferToken();
+        fotToken.mint(address(this), INITIAL_DEPOSIT);
+        fotToken.approve(address(poolFactory), type(uint256).max);
+
+        vm.expectRevert(PredictionPoolFactory.FeeOnTransferNotSupported.selector);
+        _createPoolWithToken(address(fotToken));
+    }
+
+    function test_createPool_revertsOnFeeOnTransferToken_poolDepositCheck() public {
+        MockFeeOnTransferToken fotToken = new MockFeeOnTransferToken();
+        fotToken.mint(address(this), INITIAL_DEPOSIT);
+        fotToken.approve(address(poolFactory), type(uint256).max);
+
+        // Exempt factory transferFrom so factory check passes;
+        // Pool's safeTransferFrom in initialize is taxed and triggers line 172 check.
+        fotToken.setExemptRecipient(address(poolFactory));
+
+        vm.expectRevert(PredictionPool.FeeOnTransferNotSupported.selector);
+        _createPoolWithToken(address(fotToken));
+    }
+
+    function test_createPool_revertsOnFeeOnTransferToken_bullDepositCheck() public {
+        MockFeeOnTransferToken fotToken = new MockFeeOnTransferToken();
+        fotToken.mint(address(this), INITIAL_DEPOSIT);
+        fotToken.approve(address(poolFactory), type(uint256).max);
+
+        // Disable transferFrom fee so factory pull and pool pull both succeed;
+        // Tax 1st transfer (pool -> bullCoin deposit) to trigger line 177 check.
+        fotToken.setFeeOnTransferFrom(false);
+        fotToken.setTaxOnlyTransferIndex(1);
+
+        vm.expectRevert(PredictionPool.FeeOnTransferNotSupported.selector);
+        _createPoolWithToken(address(fotToken));
+    }
+
+    function test_createPool_revertsOnFeeOnTransferToken_bearDepositCheck() public {
+        MockFeeOnTransferToken fotToken = new MockFeeOnTransferToken();
+        fotToken.mint(address(this), INITIAL_DEPOSIT);
+        fotToken.approve(address(poolFactory), type(uint256).max);
+
+        // Disable transferFrom fee so factory pull and pool pull both succeed;
+        // Tax 2nd transfer (pool -> bearCoin deposit) to trigger line 182 check.
+        fotToken.setFeeOnTransferFrom(false);
+        fotToken.setTaxOnlyTransferIndex(2);
+
+        vm.expectRevert(PredictionPool.FeeOnTransferNotSupported.selector);
+        _createPoolWithToken(address(fotToken));
     }
 }

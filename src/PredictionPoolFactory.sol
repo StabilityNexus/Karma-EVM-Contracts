@@ -20,6 +20,7 @@ contract PredictionPoolFactory {
     error InvalidAddress();
     error InvalidOracle();
     error InvalidFeeConfiguration();
+    error FeeOnTransferNotSupported();
 
     event PoolCreated(
         address indexed pool,
@@ -35,6 +36,8 @@ contract PredictionPoolFactory {
         coinFactory = new CoinFactory();
     }
 
+    /// @notice Creates a new prediction pool.
+    /// @dev baseToken must be a standard ERC-20 token with exact-transfer semantics. Fee-on-transfer and rebasing tokens are not supported.
     function createPool(
         string calldata name,
         address baseToken,
@@ -90,7 +93,11 @@ contract PredictionPoolFactory {
 
         IERC20 token = IERC20(config.baseToken);
         if (config.initialDeposit > 0) {
+            uint256 balanceBefore = token.balanceOf(address(this));
             token.safeTransferFrom(msg.sender, address(this), config.initialDeposit);
+            if (token.balanceOf(address(this)) - balanceBefore != config.initialDeposit) {
+                revert FeeOnTransferNotSupported();
+            }
         }
         token.forceApprove(address(newPool), config.initialDeposit);
         newPool.initialize(config.initialDeposit);

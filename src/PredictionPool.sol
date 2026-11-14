@@ -32,6 +32,8 @@ struct PredictionPoolConfig {
     uint256 initialDeposit;
 }
 
+/// @notice PredictionPool manages bull and bear coins for an underlying baseToken.
+/// @dev baseToken must be a standard ERC-20 token with exact-transfer semantics. Fee-on-transfer and rebasing tokens are not supported.
 contract PredictionPool is Ownable2Step {
     using SafeERC20 for IERC20;
 
@@ -60,6 +62,7 @@ contract PredictionPool is Ownable2Step {
     error OnlyFactory();
     error PoolAlreadyInitialized();
     error InitialDepositMismatch();
+    error FeeOnTransferNotSupported();
 
     event OracleUpdated(address indexed previousOracle, address indexed newOracle);
     event PoolInitialized(
@@ -163,9 +166,21 @@ contract PredictionPool is Ownable2Step {
         uint256 bullDeposit = initialDeposit_ / 2;
         uint256 bearDeposit = initialDeposit_ - bullDeposit;
         if (initialDeposit_ > 0) {
+            uint256 balBefore = baseToken.balanceOf(address(this));
             baseToken.safeTransferFrom(msg.sender, address(this), initialDeposit_);
+            if (baseToken.balanceOf(address(this)) - balBefore != initialDeposit_) {
+                revert FeeOnTransferNotSupported();
+            }
+            uint256 bullBefore = baseToken.balanceOf(address(bullCoin));
             baseToken.safeTransfer(address(bullCoin), bullDeposit);
+            if (baseToken.balanceOf(address(bullCoin)) - bullBefore != bullDeposit) {
+                revert FeeOnTransferNotSupported();
+            }
+            uint256 bearBefore = baseToken.balanceOf(address(bearCoin));
             baseToken.safeTransfer(address(bearCoin), bearDeposit);
+            if (baseToken.balanceOf(address(bearCoin)) - bearBefore != bearDeposit) {
+                revert FeeOnTransferNotSupported();
+            }
 
             uint8 decimals_ = IERC20Metadata(address(baseToken)).decimals();
             uint256 scale = 10 ** (18 - decimals_);
@@ -226,6 +241,14 @@ contract PredictionPool is Ownable2Step {
             newPrice > oldPrice ? newPrice - oldPrice : oldPrice - newPrice, 10_000, oldPrice
         );
         previousPrice = newPrice;
+
+        // Since baseToken is restricted to exact-transfer tokens, post-transfer reserves
+        // match the arithmetic delta exactly without redundant external balanceOf staticcalls.
+        uint256 bullReservesAfter =
+            toBull ? bullBefore + transferAmount : bullBefore - transferAmount;
+        uint256 bearReservesAfter =
+            toBull ? bearBefore - transferAmount : bearBefore + transferAmount;
+
         emit Rebalanced(
             msg.sender,
             block.number,
@@ -234,8 +257,8 @@ contract PredictionPool is Ownable2Step {
             percentChange,
             bullBefore,
             bearBefore,
-            baseToken.balanceOf(address(bullCoin)),
-            baseToken.balanceOf(address(bearCoin)),
+            bullReservesAfter,
+            bearReservesAfter,
             transferAmount,
             toBull,
             block.timestamp
