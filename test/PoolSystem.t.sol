@@ -190,6 +190,9 @@ contract PoolSystemTest is Test {
         address karmaAddress = karmaFactory.createKarma(address(pool), 0, 0, "Karma");
         Karma karma = Karma(karmaAddress);
 
+        bull.approve(karmaAddress, type(uint256).max);
+        bear.approve(karmaAddress, type(uint256).max);
+        karma.lock(bull.balanceOf(address(this)), bear.balanceOf(address(this)));
         karma.submitPrice(150e18);
         pool.updateOracle(karmaAddress);
 

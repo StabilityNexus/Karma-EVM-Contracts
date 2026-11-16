@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { IOracle } from "./interfaces/IOracle.sol";
@@ -23,9 +24,11 @@ interface ICoinReader {
 
 // Permissionless on-chain price-discovery oracle.
 //
-// Participants submit price observations weighted by the economic neutrality
-// of their bull/bear holdings. Equal economic exposure to up/down moves gives
-// maximum weight; one-sided holdings give zero weight. Older submissions decay
+// Participants lock bull/bear coins here and submit price observations weighted
+// by the economic neutrality of the locked coins. Unlocking removes the
+// submission, so the same coins never back two submissions at once. Equal
+// economic exposure to up/down moves gives maximum weight; one-sided holdings
+// give zero weight. Older submissions decay
 // exponentially so the oracle tracks fresh consensus.
 //
 // All configuration is immutable. The factory caches instances by
@@ -33,6 +36,7 @@ interface ICoinReader {
 // gets the same oracle — no owner can change the rules after deployment.
 contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
     using PriceAverager for PriceAverager.State;
+    using SafeERC20 for IERC20;
 
     uint256 public constant DEFAULT_TAU = 124651;
     uint256 public constant DEFAULT_MIN_BALANCE = 100e18;
@@ -56,11 +60,14 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
     }
 
     mapping(address => Submission) public submissions;
+    mapping(address => uint256) private lockedBull;
+    mapping(address => uint256) private lockedBear;
 
     error ZeroPrice();
     error InsufficientBalance(uint256 totalBalance, uint256 minRequired);
     error ZeroWeight();
     error InvalidPool();
+    error InsufficientLocked();
 
     constructor(address _pool, uint256 _tau, uint256 _minTotalBalance, string memory desc) {
         if (_pool == address(0)) revert InvalidPool();
@@ -104,13 +111,56 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
         return _description;
     }
 
+    // --- Locking ---
+
+    // Coins only give weight while they are locked here.
+    function lock(uint256 bullAmount, uint256 bearAmount) external override nonReentrant {
+        lockedBull[msg.sender] += bullAmount;
+        lockedBear[msg.sender] += bearAmount;
+        if (bullAmount > 0) {
+            IERC20(bullCoin).safeTransferFrom(msg.sender, address(this), bullAmount);
+        }
+        if (bearAmount > 0) {
+            IERC20(bearCoin).safeTransferFrom(msg.sender, address(this), bearAmount);
+        }
+        emit CoinsLocked(msg.sender, bullAmount, bearAmount);
+    }
+
+    // Unlocking removes the caller's submission, so the coins cannot back another one.
+    function unlock(uint256 bullAmount, uint256 bearAmount) external override nonReentrant {
+        if (bullAmount > lockedBull[msg.sender] || bearAmount > lockedBear[msg.sender]) {
+            revert InsufficientLocked();
+        }
+
+        Submission storage sub = submissions[msg.sender];
+        if (sub.timestamp > 0) {
+            _averager.removeContribution(sub.price, sub.weight, uint64(sub.timestamp), tau);
+            delete submissions[msg.sender];
+        }
+
+        lockedBull[msg.sender] -= bullAmount;
+        lockedBear[msg.sender] -= bearAmount;
+        if (bullAmount > 0) IERC20(bullCoin).safeTransfer(msg.sender, bullAmount);
+        if (bearAmount > 0) IERC20(bearCoin).safeTransfer(msg.sender, bearAmount);
+        emit CoinsUnlocked(msg.sender, bullAmount, bearAmount);
+    }
+
+    function lockedBalances(address user)
+        external
+        view
+        override
+        returns (uint256 bullAmount, uint256 bearAmount)
+    {
+        return (lockedBull[user], lockedBear[user]);
+    }
+
     // --- Price submission ---
 
     function submitPrice(uint256 price) external override nonReentrant {
         if (price == 0) revert ZeroPrice();
 
-        uint256 bullBalance = IERC20(bullCoin).balanceOf(msg.sender);
-        uint256 bearBalance = IERC20(bearCoin).balanceOf(msg.sender);
+        uint256 bullBalance = lockedBull[msg.sender];
+        uint256 bearBalance = lockedBear[msg.sender];
 
         uint256 totalBalance = bullBalance + bearBalance;
         if (totalBalance < minTotalBalance) {
@@ -154,8 +204,8 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
     // --- Queries ---
 
     function getWeight(address user) external view override returns (uint256 weight) {
-        uint256 bullBalance = IERC20(bullCoin).balanceOf(user);
-        uint256 bearBalance = IERC20(bearCoin).balanceOf(user);
+        uint256 bullBalance = lockedBull[user];
+        uint256 bearBalance = lockedBear[user];
 
         uint256 bullPrice = ICoinReader(bullCoin).priceSell();
         uint256 bearPrice = ICoinReader(bearCoin).priceSell();

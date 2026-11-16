@@ -21,11 +21,23 @@ interface IKarmaOracle {
 
     // -- Karma-specific --
 
-    // Submit a price observation; influence weighted by neutrality.
+    // Lock bull/bear coins. Only locked coins give weight.
+    function lock(uint256 bullAmount, uint256 bearAmount) external;
+
+    // Unlock coins. This also removes the caller's submission.
+    function unlock(uint256 bullAmount, uint256 bearAmount) external;
+
+    // Coins an address has locked.
+    function lockedBalances(address user)
+        external
+        view
+        returns (uint256 bullAmount, uint256 bearAmount);
+
+    // Submit a price observation; influence weighted by the neutrality of locked coins.
     // price must be WAD-scaled and > 0.
     function submitPrice(uint256 price) external;
 
-    // Current neutrality weight for any address.
+    // Current neutrality weight of the coins an address has locked.
     function getWeight(address user) external view returns (uint256 weight);
 
     // Most recent submission by an address.
@@ -49,6 +61,10 @@ interface IKarmaOracle {
         );
 
     // -- Events --
+
+    // Emitted when an address locks or unlocks coins.
+    event CoinsLocked(address indexed user, uint256 bullAmount, uint256 bearAmount);
+    event CoinsUnlocked(address indexed user, uint256 bullAmount, uint256 bearAmount);
 
     // Emitted on every successful price submission.
     event PriceSubmitted(

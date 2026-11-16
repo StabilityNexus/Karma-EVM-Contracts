@@ -43,6 +43,7 @@ contract SecurityTest is Test {
             address sybil = makeAddr(string(abi.encodePacked("sybil", i)));
             bullCoin.mint(sybil, 1e18);
             bearCoin.mint(sybil, 1e18);
+            _lockAll(sybil);
 
             vm.prank(sybil);
             vm.expectRevert(
@@ -56,6 +57,7 @@ contract SecurityTest is Test {
         address sybil = makeAddr("sybil");
         bullCoin.mint(sybil, 49e18);
         bearCoin.mint(sybil, 49e18);
+        _lockAll(sybil);
 
         vm.prank(sybil);
         vm.expectRevert(
@@ -68,6 +70,7 @@ contract SecurityTest is Test {
         address sybil = makeAddr("sybil");
         bullCoin.mint(sybil, 50e18);
         bearCoin.mint(sybil, 50e18);
+        _lockAll(sybil);
 
         vm.prank(sybil);
         karma.submitPrice(67000e18); // Should succeed — exactly at threshold
@@ -84,6 +87,7 @@ contract SecurityTest is Test {
         address whale = makeAddr("whale");
         bullCoin.mint(whale, 5000e18);
         bearCoin.mint(whale, 100e18);
+        _lockAll(whale);
 
         uint256 weight = karma.getWeight(whale);
         // Imbalanced -> weight = min(normBull, normBear), dominated by the smaller side
@@ -95,10 +99,12 @@ contract SecurityTest is Test {
         address whale = makeAddr("whale");
         bullCoin.mint(whale, 5000e18);
         bearCoin.mint(whale, 100e18);
+        _lockAll(whale);
 
         address balanced = makeAddr("balanced");
         bullCoin.mint(balanced, 500e18);
         bearCoin.mint(balanced, 500e18);
+        _lockAll(balanced);
 
         uint256 whaleWeight = karma.getWeight(whale);
         uint256 balancedWeight = karma.getWeight(balanced);
@@ -116,6 +122,7 @@ contract SecurityTest is Test {
         address balanced = makeAddr("balanced");
         bullCoin.mint(balanced, 500e18);
         bearCoin.mint(balanced, 500e18);
+        _lockAll(balanced);
 
         vm.prank(balanced);
         karma.submitPrice(100e18); // "Correct" price
@@ -126,6 +133,7 @@ contract SecurityTest is Test {
         address whale = makeAddr("whale");
         bullCoin.mint(whale, 100_000e18);
         bearCoin.mint(whale, 100e18); // Very small bear position
+        _lockAll(whale);
 
         vm.prank(whale);
         karma.submitPrice(500e18); // Manipulated price
@@ -153,24 +161,24 @@ contract SecurityTest is Test {
         bullCoin.mint(attacker, 10000e18);
         bearCoin.mint(attacker, 10000e18);
 
-        // Submit with inflated balance — this succeeds in the same tx
+        // Lock and submit with the inflated balance. This succeeds in the same tx.
+        _lockAll(attacker);
         vm.prank(attacker);
         karma.submitPrice(99999e18);
 
-        // But the weight is based on balanceOf at submission time
-        // The key defense is that bull/bear coins are NOT flash-loanable
-        // because they require baseToken deposit through buy().
-        // This test verifies the contract reads balances correctly.
         (, uint256 w,) = karma.getSubmission(attacker);
         assertGt(w, 0, "Flash-loaned balance does produce weight");
 
-        // Now "repay" the flash loan
+        // To repay the loan the coins must be unlocked. That removes the submission.
+        vm.prank(attacker);
+        karma.unlock(10000e18, 10000e18);
         bullCoin.burn(attacker, 10000e18);
         bearCoin.burn(attacker, 10000e18);
 
-        // Subsequent weight check shows low balance
-        uint256 currentWeight = karma.getWeight(attacker);
-        assertLt(currentWeight, w, "Post-repay weight should be lower");
+        (,, uint256 t) = karma.getSubmission(attacker);
+        assertEq(t, 0, "Unlocking removes the submission");
+        assertEq(karma.readValue(), 0, "The repaid coins no longer count");
+        assertLt(karma.getWeight(attacker), w, "Post-repay weight should be lower");
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -180,6 +188,7 @@ contract SecurityTest is Test {
     function test_pure_bull_holder_cannot_submit() public {
         address bullOnly = makeAddr("bullOnly");
         bullCoin.mint(bullOnly, 1000e18);
+        _lockAll(bullOnly);
 
         vm.prank(bullOnly);
         vm.expectRevert(Karma.ZeroWeight.selector);
@@ -189,6 +198,7 @@ contract SecurityTest is Test {
     function test_pure_bear_holder_cannot_submit() public {
         address bearOnly = makeAddr("bearOnly");
         bearCoin.mint(bearOnly, 1000e18);
+        _lockAll(bearOnly);
 
         vm.prank(bearOnly);
         vm.expectRevert(Karma.ZeroWeight.selector);
@@ -212,6 +222,7 @@ contract SecurityTest is Test {
             address user = makeAddr(string(abi.encodePacked("user", i)));
             bullCoin.mint(user, 500e18);
             bearCoin.mint(user, 500e18);
+            _lockAll(user);
 
             vm.prank(user);
             karma.submitPrice(prices[i]);
@@ -236,6 +247,7 @@ contract SecurityTest is Test {
         address user = makeAddr("fuzzUser");
         bullCoin.mint(user, bullBal);
         bearCoin.mint(user, bearBal);
+        _lockAll(user);
 
         // Should either succeed or revert with a known error, never panic
         vm.prank(user);
@@ -248,5 +260,15 @@ contract SecurityTest is Test {
         } catch {
             // Known reverts (ZeroWeight) are acceptable
         }
+    }
+
+    function _lockAll(address who) internal {
+        uint256 bullAmount = bullCoin.balanceOf(who);
+        uint256 bearAmount = bearCoin.balanceOf(who);
+        vm.startPrank(who);
+        bullCoin.approve(address(karma), bullAmount);
+        bearCoin.approve(address(karma), bearAmount);
+        karma.lock(bullAmount, bearAmount);
+        vm.stopPrank();
     }
 }
