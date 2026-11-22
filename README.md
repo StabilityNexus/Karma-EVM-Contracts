@@ -21,7 +21,7 @@ Traditional prediction markets and DeFi protocols depend on external oracles (e.
 ### 1. Which Pool Does Karma Price?
 Each `Karma` oracle contract is constructed for one source prediction pool.
 - The oracle reads `bullCoin`, `bearCoin`, and `baseToken` reserves directly from the pool.
-- Submissions are weighted using the caller's Bull and Bear balances in that source pool.
+- Submissions are weighted using the Bull and Bear coins the caller has locked in Karma with `lock`.
 - Other integrations can consume the price through Karma's oracle interfaces. Whether the source pool can also use it depends on that pool's oracle configuration.
 
 ### 2. Neutrality Weighting
@@ -74,12 +74,13 @@ If the same account resubmits a price, their prior contribution is decayed to th
    - Because `minTotalBalance` cannot be modified after deployment, shared users of an oracle instance are fully protected from rug-pull parameter alterations.
 
 2. **Sybil & Dust Spam Resistance**:
-   - Balances are verified at submission time: a user's total balance (`bullCoin.balanceOf(user) + bearCoin.balanceOf(user)`) must meet or exceed `minTotalBalance` (default: 100 tokens).
+   - Locked balances are verified at submission time: a user's locked Bull plus Bear total (see `lockedBalances(user)`) must meet or exceed `minTotalBalance` (default: 100 tokens).
+   - Coins only count while they are locked in Karma, and `unlock` removes the user's submission. So the same coins cannot back submissions from several wallets.
    - Splitting capital across multiple wallets offers zero mathematical advantage due to the sub-additive/linear property of $\min(x, y)$, while sub-threshold wallets revert.
 
 3. **Balance-at-submission trade-off**:
-   - Karma reads Bull and Bear balances when `submitPrice` is called. Buying positions, submitting, and selling them in one transaction can leave a weighted contribution after the balances are gone.
-   - Acquiring and exiting both positions may incur the source pool's fees and slippage. Karma does not lock reporter tokens, and these costs do not guarantee that manipulation is unprofitable.
+   - Karma reads the locked Bull and Bear balances when `submitPrice` is called. A contribution counts until the user unlocks.
+   - A user can still buy positions, lock a balanced part, submit, and sell the rest in one transaction while the submission counts. Fees and slippage do not guarantee that this is unprofitable.
 
 ---
 
@@ -106,7 +107,7 @@ src/
     └── WeightLib.sol
 ```
 
-Pool creation uses an oracle that already exists. To use Karma for a pool, create the pool with an initial oracle, seed it with liquidity, create a Karma oracle using that pool as its source, submit an initial price, then have the pool owner call `updateOracle(karmaAddress)`. Karma can also serve a different pool or integration.
+Pool creation uses an oracle that already exists. To use Karma for a pool, create the pool with an initial oracle, seed it with liquidity, create a Karma oracle using that pool as its source, lock coins and submit an initial price, then have the pool owner call `updateOracle(karmaAddress)`. Karma can also serve a different pool or integration.
 
 Each pool sets `devFee` at construction. `AccumulatorVault` sets `dev` and `devFeeReceiver` at deployment. Dev fees collect in the vault by token; `dev` calls `flushToken(token)` to send the balance to the current receiver. `dev` can change the receiver and transfer the dev role through proposal and acceptance.
 

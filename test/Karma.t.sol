@@ -50,6 +50,10 @@ contract KarmaTest is Test {
         bullCoin.mint(bob, 900e18);
         bearCoin.mint(bob, 100e18);
 
+        // Only locked coins give weight.
+        _lockAll(alice);
+        _lockAll(bob);
+
         // Charlie has nothing (will get tokens as needed)
     }
 
@@ -144,6 +148,7 @@ contract KarmaTest is Test {
         // Give Charlie just below minimum
         bullCoin.mint(charlie, 49e18);
         bearCoin.mint(charlie, 49e18);
+        _lockAll(charlie);
 
         vm.prank(charlie);
         vm.expectRevert(
@@ -156,6 +161,7 @@ contract KarmaTest is Test {
         // Give Charlie only bull coins (enough for min balance but zero weight)
         bullCoin.mint(charlie, 200e18);
         // bearCoin = 0
+        _lockAll(charlie);
 
         vm.prank(charlie);
         vm.expectRevert(Karma.ZeroWeight.selector);
@@ -312,12 +318,14 @@ contract KarmaTest is Test {
         // Alice (5000/5000 balanced) submits 100e18
         bullCoin.mint(alice, 4500e18);
         bearCoin.mint(alice, 4500e18);
+        _lockAll(alice);
         vm.prank(alice);
         karma.submitPrice(100e18);
 
         // Charlie (50/50 balanced) submits 500e18 1000 times in the same block
         bullCoin.mint(charlie, 50e18);
         bearCoin.mint(charlie, 50e18);
+        _lockAll(charlie);
         vm.startPrank(charlie);
         for (uint256 i = 0; i < 1000; i++) {
             karma.submitPrice(500e18);
@@ -327,5 +335,15 @@ contract KarmaTest is Test {
         uint256 price = karma.readValue();
         // Charlie has ~1% of Alice's weight; price stays close to 100, not 463+
         assertLt(price, 110e18, "Repeated submissions must not accumulate weight");
+    }
+
+    function _lockAll(address who) internal {
+        uint256 bullAmount = bullCoin.balanceOf(who);
+        uint256 bearAmount = bearCoin.balanceOf(who);
+        vm.startPrank(who);
+        bullCoin.approve(address(karma), bullAmount);
+        bearCoin.approve(address(karma), bearAmount);
+        karma.lock(bullAmount, bearAmount);
+        vm.stopPrank();
     }
 }
