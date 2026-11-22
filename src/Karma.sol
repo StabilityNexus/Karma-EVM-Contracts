@@ -52,6 +52,8 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
     PriceAverager.State private _averager;
     uint256 public submissionCount;
     uint256 public firstSubmissionTime;
+    uint256 public lastSubmissionTime;
+    uint256 public activeSubmissions;
 
     struct Submission {
         uint256 price;
@@ -104,7 +106,7 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
         override(IOracle, IKarmaOracle)
         returns (uint256 timestamp)
     {
-        return uint256(_averager.lastUpdateTime);
+        return lastSubmissionTime;
     }
 
     function description() external view override(IOracle, IKarmaOracle) returns (string memory) {
@@ -136,6 +138,12 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
         if (sub.timestamp > 0) {
             _averager.removeContribution(sub.price, sub.weight, uint64(sub.timestamp), tau);
             delete submissions[msg.sender];
+            // Rounding can leave a few wei behind. With no submissions left, clear them so they
+            // do not turn into a price.
+            if (--activeSubmissions == 0) {
+                _averager.weightedPrice = 0;
+                _averager.totalWeight = 0;
+            }
         }
 
         lockedBull[msg.sender] -= bullAmount;
@@ -185,6 +193,8 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
             _averager.removeContribution(
                 prevSub.price, prevSub.weight, uint64(prevSub.timestamp), tau
             );
+        } else {
+            activeSubmissions++;
         }
 
         // Add new submission to the time-decayed averager.
@@ -194,6 +204,7 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
             Submission({ price: price, weight: weight, timestamp: block.timestamp });
 
         submissionCount++;
+        lastSubmissionTime = block.timestamp;
         if (submissionCount == 1) {
             firstSubmissionTime = block.timestamp;
         }
@@ -251,7 +262,7 @@ contract Karma is IOracle, IKarmaOracle, ReentrancyGuard {
         roundId = uint80(count);
         answer = int256(price);
         startedAt = firstSubmissionTime;
-        updatedAt = uint256(_averager.lastUpdateTime);
+        updatedAt = lastSubmissionTime;
         answeredInRound = uint80(count);
     }
 

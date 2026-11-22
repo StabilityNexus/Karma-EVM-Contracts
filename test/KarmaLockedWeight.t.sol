@@ -87,7 +87,7 @@ contract KarmaLockedWeightTest is Test {
             uint256 doubled = 2 * karma.readValue();
             vm.prank(holder);
             karma.submitPrice(doubled);
-            holder = _unlockAndMove(holder, address(uint160(0xB0B000 + i)));
+            holder = _unlockAndMove(holder, _hop("doubling", i));
         }
 
         assertLt(karma.readValue(), 2e18, "bounded prices compounded through moved coins");
@@ -125,6 +125,66 @@ contract KarmaLockedWeightTest is Test {
         vm.expectRevert(Karma.InsufficientLocked.selector);
         vm.prank(attacker);
         karma.unlock(lockedBull + 1, lockedBear);
+
+        vm.expectRevert(Karma.InsufficientLocked.selector);
+        vm.prank(attacker);
+        karma.unlock(lockedBull, lockedBear + 1);
+    }
+
+    function test_unlockLowersLockedBalances() public {
+        _lockAll(attacker);
+        (uint256 lockedBull, uint256 lockedBear) = karma.lockedBalances(attacker);
+
+        vm.prank(attacker);
+        karma.unlock(lockedBull / 2, lockedBear / 2);
+        (uint256 bullLeft, uint256 bearLeft) = karma.lockedBalances(attacker);
+        assertEq(bullLeft, lockedBull - lockedBull / 2);
+        assertEq(bearLeft, lockedBear - lockedBear / 2);
+
+        // The same coins cannot be unlocked twice.
+        vm.expectRevert(Karma.InsufficientLocked.selector);
+        vm.prank(attacker);
+        karma.unlock(lockedBull, lockedBear);
+    }
+
+    // Rounding must not leave a price behind once every reporter has unlocked.
+    function testFuzz_noPriceLeftAfterEveryoneUnlocks(uint256 seed) public {
+        address[5] memory reporters;
+        // Keep time in a local: block.timestamp can be cached in tests built with via_ir.
+        uint256 time = block.timestamp;
+        for (uint256 i; i < reporters.length; i++) {
+            reporters[i] = _hop("reporter", i);
+            uint256 amount = 100e18 + uint256(keccak256(abi.encode(seed, i))) % 2_000e18;
+            _buy(reporters[i], bull, amount);
+            _buy(reporters[i], bear, amount);
+            _lockAll(reporters[i]);
+            vm.prank(reporters[i]);
+            karma.submitPrice(0.5e18 + uint256(keccak256(abi.encode(seed, i, "price"))) % 3e18);
+            time += 1 + uint256(keccak256(abi.encode(seed, i, "t"))) % 2 days;
+            vm.warp(time);
+        }
+
+        _unlockAll(address(this));
+        for (uint256 i; i < reporters.length; i++) {
+            time += uint256(keccak256(abi.encode(seed, i, "u"))) % 1 days;
+            vm.warp(time);
+            _unlockAll(reporters[i]);
+        }
+
+        assertEq(karma.readValue(), 0, "a price was left with no reporters");
+        assertFalse(karma.hasPrice());
+        assertEq(karma.activeSubmissions(), 0);
+    }
+
+    function test_unlockDoesNotLookLikeANewPrice() public {
+        uint256 submittedAt = karma.lastUpdated();
+        vm.warp(submittedAt + 1 days);
+
+        _unlockAll(address(this));
+
+        assertEq(karma.lastUpdated(), submittedAt);
+        (,,, uint256 updatedAt,) = karma.latestRoundData();
+        assertEq(updatedAt, submittedAt);
     }
 
     // Each address locks the same coins and submits. Moving them on unlocks them first.
@@ -135,7 +195,7 @@ contract KarmaLockedWeightTest is Test {
     {
         holder = attacker;
         for (uint256 i; i < count; i++) {
-            if (i > 0) holder = _unlockAndMove(holder, address(uint160(0xA11CE000 + i)));
+            if (i > 0) holder = _unlockAndMove(holder, _hop("same coins", i));
             _lockAll(holder);
             vm.prank(holder);
             karma.submitPrice(price);
@@ -157,8 +217,8 @@ contract KarmaLockedWeightTest is Test {
     function _unlockAndMove(address from, address to) private returns (address) {
         _unlockAll(from);
         vm.startPrank(from);
-        bull.transfer(to, bull.balanceOf(from));
-        bear.transfer(to, bear.balanceOf(from));
+        assertTrue(bull.transfer(to, bull.balanceOf(from)));
+        assertTrue(bear.transfer(to, bear.balanceOf(from)));
         vm.stopPrank();
         return to;
     }
@@ -177,6 +237,10 @@ contract KarmaLockedWeightTest is Test {
         (uint256 bullAmount, uint256 bearAmount) = karma.lockedBalances(who);
         vm.prank(who);
         karma.unlock(bullAmount, bearAmount);
+    }
+
+    function _hop(string memory label, uint256 i) private returns (address) {
+        return makeAddr(string.concat(label, " ", vm.toString(i)));
     }
 
     function _buy(address who, Coin coin, uint256 amount) private returns (uint256 got) {
