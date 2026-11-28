@@ -29,6 +29,8 @@ contract Coin is ERC20, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 public constant DENOMINATOR = 100_000;
+    /// @notice Minimum supply that a sell must leave, in raw coin units.
+    uint256 public constant MINIMUM_SUPPLY = 1_000_000;
 
     IERC20 public immutable asset;
     address public immutable vaultCreator;
@@ -53,6 +55,7 @@ contract Coin is ERC20, ReentrancyGuard {
     error MissingOtherCoin();
     error UnsupportedDecimals();
     error SupplyWouldBecomeZero();
+    error SupplyBelowMinimum();
     error InsufficientReserve();
 
     event Mint(
@@ -211,7 +214,9 @@ contract Coin is ERC20, ReentrancyGuard {
 
     function sell(uint256 amountCoin) external nonReentrant returns (uint256 amountAsset) {
         if (amountCoin == 0) revert ZeroAmount();
-        if (amountCoin >= totalSupply()) revert SupplyWouldBecomeZero();
+        uint256 supply = totalSupply();
+        if (amountCoin >= supply) revert SupplyWouldBecomeZero();
+        if (supply - amountCoin < MINIMUM_SUPPLY) revert SupplyBelowMinimum();
         IPoolRebalance(predictionPool).rebalance();
 
         uint256 price = priceSell();

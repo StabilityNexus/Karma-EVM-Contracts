@@ -185,6 +185,25 @@ contract PoolSystemTest is Test {
         assertGt(baseToken.balanceOf(address(vault)), (amountIn * DEV_FEE) / 100_000);
     }
 
+    function test_sellEnforcesMinimumRemainingSupply() public {
+        uint256 supply = bull.totalSupply();
+        uint256 maxSell = supply - bull.MINIMUM_SUPPLY();
+
+        vm.expectRevert(Coin.SupplyBelowMinimum.selector);
+        bull.sell(maxSell + 1);
+        assertEq(bull.totalSupply(), supply);
+
+        assertGt(bull.sell(maxSell), 0);
+        assertEq(bull.totalSupply(), bull.MINIMUM_SUPPLY());
+    }
+
+    function test_sellRejectsWholeSupplyWithExistingError() public {
+        uint256 supply = bull.totalSupply();
+
+        vm.expectRevert(Coin.SupplyWouldBecomeZero.selector);
+        bull.sell(supply);
+    }
+
     function test_karmaCanBeCreatedForPoolAndSetAsOracle() public {
         KarmaAdapterFactory karmaFactory = new KarmaAdapterFactory();
         address karmaAddress = karmaFactory.createKarma(address(pool), 0, 0, "Karma");
